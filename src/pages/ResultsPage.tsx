@@ -6,13 +6,13 @@ import {
   campaignEvolution,
   campaignReplies,
   formatCurrency,
-  getClient,
 } from '../data/mock'
 import { ClientCell } from '../components/ui/Avatar'
 import { DonutChart } from '../components/ui/DonutChart'
 import { LineChart } from '../components/ui/LineChart'
 import { OutcomeBadge } from '../components/ui/StatusBadge'
 import { ConversationModal } from '../components/ConversationModal'
+import { useClients } from '../context/ClientsContext'
 
 const kpis = [
   { value: '45', label: 'Mensagens enviadas', meta: '100%', color: 'text-sky-500', icon: '✈️' },
@@ -24,6 +24,7 @@ const kpis = [
 
 export function ResultsPage() {
   const [conversation, setConversation] = useState<string | null>(null)
+  const { getClient } = useClients()
 
   return (
     <div className="space-y-6">
@@ -164,7 +165,8 @@ export function ResultsPage() {
               </thead>
               <tbody>
                 {campaignReplies.map((row) => {
-                  const client = getClient(row.clientId)!
+                  const client = getClient(row.clientId)
+                  if (!client) return null
                   return (
                     <tr key={row.id} className="border-b border-slate-50 last:border-0">
                       <td className="px-5 py-3">

@@ -1,12 +1,16 @@
-/** Future WhatsApp Business API adapter. */
-export async function sendCampaignMessages(_payload: {
-  clientIds: string[]
+import { sendClientWhatsApp } from '../lib/whatsapp'
+import type { Client } from '../types'
+
+export async function sendCampaignMessages(payload: {
+  clients: Client[]
   template: string
 }) {
-  return { queued: true, provider: 'mock' as const }
+  const first = payload.clients[0]
+  if (!first) return { queued: false, provider: 'whatsapp-web' as const }
+  sendClientWhatsApp(first, payload.template)
+  return { queued: true, provider: 'whatsapp-web' as const, remaining: payload.clients.slice(1) }
 }
 
-/** Future LLM adapter for message suggestions. */
 export async function suggestMessage(_context: { audience: string }) {
   return { provider: 'mock' as const }
 }

@@ -10,25 +10,26 @@ import {
 } from 'lucide-react'
 import {
   BUSINESS,
+  DEFAULT_MESSAGE,
   PIZZA_IMAGE,
-  clients,
   recentMessages,
-  statusCounts,
-  getClient,
 } from '../data/mock'
 import { Avatar, ClientCell } from '../components/ui/Avatar'
 import { DonutChart } from '../components/ui/DonutChart'
 import { MessageStatusBadge } from '../components/ui/StatusBadge'
-
-const kpis = [
-  { label: 'Clientes cadastrados', value: '100', delta: '+12%', icon: Users, iconBg: 'bg-sky-50 text-sky-500' },
-  { label: 'Mensagens enviadas', value: '32', delta: '+23%', icon: Send, iconBg: 'bg-emerald-50 text-emerald-500' },
-  { label: 'Respostas recebidas', value: '18', delta: '+12%', icon: MessageCircle, iconBg: 'bg-violet-50 text-violet-500' },
-  { label: 'Pedidos recuperados', value: '11', delta: '+37%', icon: Pizza, iconBg: 'bg-orange-50 text-orange-500' },
-  { label: 'Faturamento recuperado', value: 'R$ 687', delta: '+41%', icon: CircleDollarSign, iconBg: 'bg-emerald-50 text-emerald-600' },
-]
+import { useClients } from '../context/ClientsContext'
+import { sendClientWhatsApp } from '../lib/whatsapp'
 
 export function DashboardPage() {
+  const { clients, statusCounts, getClient } = useClients()
+  const kpis = [
+    { label: 'Clientes cadastrados', value: String(clients.length), delta: '+12%', icon: Users, iconBg: 'bg-sky-50 text-sky-500' },
+    { label: 'Mensagens enviadas', value: '32', delta: '+23%', icon: Send, iconBg: 'bg-emerald-50 text-emerald-500' },
+    { label: 'Respostas recebidas', value: '18', delta: '+12%', icon: MessageCircle, iconBg: 'bg-violet-50 text-violet-500' },
+    { label: 'Pedidos recuperados', value: '11', delta: '+37%', icon: Pizza, iconBg: 'bg-orange-50 text-orange-500' },
+    { label: 'Faturamento recuperado', value: 'R$ 687', delta: '+41%', icon: CircleDollarSign, iconBg: 'bg-emerald-50 text-emerald-600' },
+  ]
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -87,7 +88,7 @@ export function DashboardPage() {
                 { value: statusCounts.atrasado, color: '#ef4444' },
                 { value: statusCounts.muito_tempo, color: '#94a3b8' },
               ]}
-              centerTitle="100"
+              centerTitle={String(clients.length)}
               centerSubtitle="clientes"
             />
             <ul className="w-full space-y-3 text-sm">
@@ -136,6 +137,9 @@ export function DashboardPage() {
               Ver todas
             </Link>
           </div>
+          <p className="px-5 pb-3 text-sm text-amber-700">
+            Esta tabela é um exemplo. A conversa do Everton não foi enviada ao seu WhatsApp. Para enviar de verdade, cadastre o número real em Clientes e clique em Enviar.
+          </p>
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-slate-400">
@@ -149,9 +153,14 @@ export function DashboardPage() {
               </thead>
               <tbody>
                 {recentMessages.map((msg) => {
-                  const client = getClient(msg.clientId)!
+                  const client = getClient(msg.clientId)
+                  if (!client) return null
                   return (
-                    <tr key={msg.id} className="border-b border-slate-50 last:border-0">
+                    <tr
+                      key={msg.id}
+                      className="cursor-pointer border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                      onClick={() => sendClientWhatsApp(client, DEFAULT_MESSAGE)}
+                    >
                       <td className="px-5 py-3">
                         <ClientCell client={client} />
                       </td>

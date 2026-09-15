@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
-import { BUSINESS, PIZZA_PROMO_IMAGE, getClient } from '../data/mock'
+import { BUSINESS, PIZZA_PROMO_IMAGE } from '../data/mock'
 import { Avatar } from './ui/Avatar'
+import { useClients } from '../context/ClientsContext'
 
 interface ConversationModalProps {
   clientId: string | null
@@ -8,6 +9,7 @@ interface ConversationModalProps {
 }
 
 export function ConversationModal({ clientId, onClose }: ConversationModalProps) {
+  const { getClient } = useClients()
   if (!clientId) return null
   const client = getClient(clientId)
   if (!client) return null

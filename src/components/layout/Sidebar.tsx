@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { BUSINESS } from '../../data/mock'
+import { useClients } from '../../context/ClientsContext'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: Home, end: true },
@@ -29,7 +30,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const usage = Math.round((BUSINESS.clientsUsed / BUSINESS.clientsLimit) * 100)
+  const { clients } = useClients()
+  const usage = Math.round((clients.length / BUSINESS.clientsLimit) * 100)
 
   return (
     <>
@@ -91,7 +93,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <div className="mt-3">
               <div className="mb-1.5 flex justify-between text-[11px] text-slate-400">
                 <span>
-                  {BUSINESS.clientsUsed} de {BUSINESS.clientsLimit.toLocaleString('pt-BR')} clientes
+                  {clients.length} de {BUSINESS.clientsLimit.toLocaleString('pt-BR')} clientes
                 </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-white/10">

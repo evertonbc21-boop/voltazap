@@ -16,12 +16,11 @@ import {
   BUSINESS,
   DEFAULT_MESSAGE,
   PIZZA_PROMO_IMAGE,
-  clients,
-  getClient,
   personalizeMessage,
-  statusCounts,
 } from '../data/mock'
 import type { AudienceKey } from '../types'
+import { useClients } from '../context/ClientsContext'
+import { sendClientWhatsApp } from '../lib/whatsapp'
 
 const audienceIcons: Record<AudienceKey, string> = {
   proxima_compra: '⏰',
@@ -31,6 +30,7 @@ const audienceIcons: Record<AudienceKey, string> = {
 }
 
 export function CampaignsPage() {
+  const { clients, getClient, statusCounts } = useClients()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const preselectedId = params.get('clientId')
@@ -40,6 +40,8 @@ export function CampaignsPage() {
   const [sendNow, setSendNow] = useState(true)
   const [showVars, setShowVars] = useState(false)
   const [realData, setRealData] = useState(true)
+  const [queue, setQueue] = useState<typeof clients>([])
+  const [sendError, setSendError] = useState('')
 
   useEffect(() => {
     if (preselectedId) {
@@ -53,10 +55,35 @@ export function CampaignsPage() {
     if (audience === 'proxima_compra') return statusCounts.proxima_compra
     if (audience === 'atrasado') return statusCounts.atrasado
     return statusCounts.muito_tempo
-  }, [audience, selectedIds])
+  }, [audience, selectedIds, statusCounts])
 
   const previewClient = getClient(selectedIds[0] ?? 'c1') ?? clients[0]
-  const previewText = personalizeMessage(message, previewClient)
+  const previewText = previewClient ? personalizeMessage(message, previewClient) : message
+
+  const recipients = useMemo(() => {
+    if (audience === 'personalizado') {
+      return clients.filter((c) => selectedIds.includes(c.id))
+    }
+    return clients.filter((c) => c.status === audience)
+  }, [audience, clients, selectedIds])
+
+  function handleSendCampaign() {
+    setSendError('')
+    if (recipients.length === 0) {
+      setSendError('Selecione pelo menos um cliente.')
+      return
+    }
+    const opened = sendClientWhatsApp(recipients[0], message)
+    if (!opened) {
+      setSendError('Número de WhatsApp inválido. Cadastre um telefone com DDD.')
+      return
+    }
+    if (recipients.length > 1) {
+      setQueue(recipients.slice(1))
+      return
+    }
+    navigate('/resultados')
+  }
 
   return (
     <div className="space-y-6">
@@ -105,7 +132,11 @@ export function CampaignsPage() {
                     </div>
                     <p className="font-semibold text-slate-800">{option.title}</p>
                     <p className="mt-1 text-xs text-slate-500">{option.description}</p>
-                    <p className="mt-3 text-sm font-semibold text-slate-700">{option.countLabel}</p>
+                    <p className="mt-3 text-sm font-semibold text-slate-700">
+                      {option.key === 'personalizado'
+                        ? option.countLabel
+                        : `${statusCounts[option.key]} clientes`}
+                    </p>
                   </button>
                 )
               })}
@@ -256,13 +287,16 @@ export function CampaignsPage() {
                 </li>
               </ul>
               <button
-                onClick={() => navigate('/resultados')}
+                onClick={handleSendCampaign}
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark"
               >
                 <Send size={16} />
                 Enviar campanha
               </button>
-              <p className="mt-2 text-center text-xs text-slate-400">As mensagens serão enviadas via WhatsApp.</p>
+              {sendError ? <p className="mt-2 text-center text-xs text-red-500">{sendError}</p> : null}
+              <p className="mt-2 text-center text-xs text-slate-400">
+                O WhatsApp abre com a mensagem pronta. Confirme o envio no aplicativo. Use um número real, não o de exemplo.
+              </p>
             </div>
           </section>
         </div>
@@ -298,6 +332,44 @@ export function CampaignsPage() {
           </div>
         </aside>
       </div>
+      {queue.length > 0 ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[80vh] w-full max-w-md overflow-auto rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="text-lg font-semibold text-slate-900">Continuar envio no WhatsApp</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              A primeira conversa já abriu. Envie as demais uma a uma e confirme no aplicativo.
+            </p>
+            <ul className="mt-4 space-y-2">
+              {queue.map((client) => (
+                <li key={client.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 px-3 py-2">
+                  <span className="text-sm text-slate-700">
+                    {client.nome}
+                    <span className="block text-xs text-slate-400">{client.whatsapp}</span>
+                  </span>
+                  <button
+                    className="shrink-0 text-sm font-semibold text-brand"
+                    onClick={() => {
+                      sendClientWhatsApp(client, message)
+                      setQueue((current) => current.filter((item) => item.id !== client.id))
+                    }}
+                  >
+                    Abrir WhatsApp
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              className="mt-4 w-full rounded-xl bg-brand py-2.5 text-sm font-semibold text-white"
+              onClick={() => {
+                setQueue([])
+                navigate('/resultados')
+              }}
+            >
+              Concluir
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

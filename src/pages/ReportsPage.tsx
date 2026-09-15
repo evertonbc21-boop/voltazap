@@ -1,14 +1,15 @@
-import { statusCounts } from '../data/mock'
-
-const rows = [
-  { label: 'Clientes reativados no mês', value: '11' },
-  { label: 'Taxa de resposta', value: '40%' },
-  { label: 'Taxa de pedidos', value: '24,4%' },
-  { label: 'Faturamento recuperado', value: 'R$ 687' },
-  { label: 'Clientes prontos para campanha', value: String(statusCounts.proxima_compra + statusCounts.atrasado) },
-]
+import { useClients } from '../context/ClientsContext'
 
 export function ReportsPage() {
+  const { statusCounts } = useClients()
+  const rows = [
+    { label: 'Clientes reativados no mês', value: '11' },
+    { label: 'Taxa de resposta', value: '40%' },
+    { label: 'Taxa de pedidos', value: '24,4%' },
+    { label: 'Faturamento recuperado', value: 'R$ 687' },
+    { label: 'Clientes prontos para campanha', value: String(statusCounts.proxima_compra + statusCounts.atrasado) },
+  ]
+
   return (
     <div className="space-y-6">
       <header>

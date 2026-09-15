@@ -1,8 +1,10 @@
-import { recentMessages, getClient } from '../data/mock'
+import { recentMessages } from '../data/mock'
 import { ClientCell } from '../components/ui/Avatar'
 import { MessageStatusBadge } from '../components/ui/StatusBadge'
+import { useClients } from '../context/ClientsContext'
 
 export function MessagesPage() {
+  const { getClient } = useClients()
   return (
     <div className="space-y-6">
       <header>
@@ -23,7 +25,8 @@ export function MessagesPage() {
             </thead>
             <tbody>
               {recentMessages.map((msg) => {
-                const client = getClient(msg.clientId)!
+                const client = getClient(msg.clientId)
+                if (!client) return null
                 return (
                   <tr key={msg.id} className="border-b border-slate-50">
                     <td className="px-5 py-3">

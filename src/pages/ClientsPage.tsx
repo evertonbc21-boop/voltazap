@@ -1,27 +1,30 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ChevronDown, MoreHorizontal, Plus, Search, Send, Upload } from 'lucide-react'
-import { clients, formatCurrency, statusCounts } from '../data/mock'
+import { DEFAULT_MESSAGE, formatCurrency } from '../data/mock'
 import type { ClientStatus } from '../types'
 import { ClientCell } from '../components/ui/Avatar'
 import { ClientStatusBadge } from '../components/ui/StatusBadge'
+import { AddClientModal } from '../components/AddClientModal'
+import { useClients } from '../context/ClientsContext'
+import { sendClientWhatsApp } from '../lib/whatsapp'
 
 const PAGE_SIZE = 10
 
-const summaryCards = [
-  { key: 'normal' as const, label: 'Clientes normais', hint: '(não contactar)', value: statusCounts.normal, icon: '👥', className: 'bg-emerald-50 border-emerald-100' },
-  { key: 'proxima_compra' as const, label: 'Próxima compra', hint: '(contactar em breve)', value: statusCounts.proxima_compra, icon: '⏱️', className: 'bg-amber-50 border-amber-100' },
-  { key: 'atrasado' as const, label: 'Atrasados', hint: '(contactar agora)', value: statusCounts.atrasado, icon: '⚠️', className: 'bg-rose-50 border-rose-100' },
-  { key: 'muito_tempo' as const, label: 'Muito tempo sem comprar', hint: '(campanha especial)', value: statusCounts.muito_tempo, icon: '😴', className: 'bg-slate-100 border-slate-200' },
-]
-
 export function ClientsPage() {
-  const navigate = useNavigate()
+  const { clients, statusCounts } = useClients()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'todos' | ClientStatus>('todos')
   const [sort, setSort] = useState('ultimo')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string[]>([])
+  const [addOpen, setAddOpen] = useState(false)
+
+  const summaryCards = [
+    { key: 'normal' as const, label: 'Clientes normais', hint: '(não contactar)', value: statusCounts.normal, icon: '👥', className: 'bg-emerald-50 border-emerald-100' },
+    { key: 'proxima_compra' as const, label: 'Próxima compra', hint: '(contactar em breve)', value: statusCounts.proxima_compra, icon: '⏱️', className: 'bg-amber-50 border-amber-100' },
+    { key: 'atrasado' as const, label: 'Atrasados', hint: '(contactar agora)', value: statusCounts.atrasado, icon: '⚠️', className: 'bg-rose-50 border-rose-100' },
+    { key: 'muito_tempo' as const, label: 'Muito tempo sem comprar', hint: '(campanha especial)', value: statusCounts.muito_tempo, icon: '😴', className: 'bg-slate-100 border-slate-200' },
+  ]
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -37,7 +40,7 @@ export function ClientsPage() {
     if (sort === 'nome') list = [...list].sort((a, b) => a.nome.localeCompare(b.nome))
     if (sort === 'valor') list = [...list].sort((a, b) => b.valorMedio - a.valorMedio)
     return list
-  }, [query, status, sort])
+  }, [clients, query, status, sort])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, totalPages)
@@ -53,13 +56,19 @@ export function ClientsPage() {
         <div>
           <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Clientes</h2>
           <p className="mt-1 text-slate-500">Gerencie seus clientes e veja quem está pronto para voltar a pedir.</p>
+          <p className="mt-2 max-w-2xl text-sm text-amber-700">
+            Para a mensagem chegar no WhatsApp de verdade, cadastre um cliente com o <strong>número real</strong> (com DDD) e clique em Enviar. Os números de exemplo da lista são fictícios.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm">
             <Upload size={16} />
             Importar planilha (CSV)
           </button>
-          <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark">
+          <button
+            onClick={() => setAddOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark"
+          >
             <Plus size={16} />
             Adicionar cliente
           </button>
@@ -187,7 +196,7 @@ export function ClientsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => navigate(`/campanhas?clientId=${client.id}`)}
+                        onClick={() => sendClientWhatsApp(client, DEFAULT_MESSAGE)}
                         className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-brand"
                       >
                         <Send size={14} />
@@ -210,6 +219,11 @@ export function ClientsPage() {
           <Pagination page={current} total={totalPages} onChange={setPage} />
         </div>
       </section>
+      <AddClientModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdded={() => setPage(1)}
+      />
     </div>
   )
 }

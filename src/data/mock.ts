@@ -54,7 +54,7 @@ export const STATUS_META: Record<
   },
 }
 
-const AVATAR_COLORS = [
+export const AVATAR_COLORS = [
   '#ef4444',
   '#8b5cf6',
   '#06b6d4',
@@ -275,12 +275,16 @@ function buildClients(): Client[] {
 
 export const clients: Client[] = buildClients()
 
-export const statusCounts = {
-  normal: clients.filter((c) => c.status === 'normal').length,
-  proxima_compra: clients.filter((c) => c.status === 'proxima_compra').length,
-  atrasado: clients.filter((c) => c.status === 'atrasado').length,
-  muito_tempo: clients.filter((c) => c.status === 'muito_tempo').length,
+export function countStatuses(list: Client[]) {
+  return {
+    normal: list.filter((c) => c.status === 'normal').length,
+    proxima_compra: list.filter((c) => c.status === 'proxima_compra').length,
+    atrasado: list.filter((c) => c.status === 'atrasado').length,
+    muito_tempo: list.filter((c) => c.status === 'muito_tempo').length,
+  }
 }
+
+export const statusCounts = countStatuses(clients)
 
 export const DEFAULT_MESSAGE = `Olá, {nome}! 👋
 
