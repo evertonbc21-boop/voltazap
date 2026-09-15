@@ -22,13 +22,16 @@ import { sendClientWhatsApp } from '../lib/whatsapp'
 import { DatePicker, formatLongDate } from '../components/ui/DatePicker'
 import { usePlan } from '../context/PlanContext'
 import { useSettings } from '../context/SettingsContext'
+import type { Segment } from '../context/SettingsContext'
 import { formatPlanPrice } from '../data/plans'
 
 export function DashboardPage() {
   const { clients, statusCounts, getClient } = useClients()
-  const { plan } = usePlan()
+  const { plan, account } = usePlan()
   const { settings } = useSettings()
   const used = Math.min(plan.clientsLimit, Math.max(clients.length, plan.usedClients))
+  const greetingName = getGreetingName(settings.companyName, account?.nome)
+  const businessLabel = getBusinessLabel(settings.segment)
   const [selectedDate, setSelectedDate] = useState(() => new Date())
   const today = useMemo(() => {
     const now = new Date()
@@ -50,11 +53,11 @@ export function DashboardPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Olá, Guto! 👋</h2>
+          <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Olá, {greetingName}! 👋</h2>
           <p className="mt-1 text-slate-500">
             {isToday
-              ? 'Aqui está o resumo da sua pizzaria hoje.'
-              : `Aqui está o resumo da sua pizzaria em ${formatLongDate(selectedDate)}.`}
+              ? `Aqui está o resumo ${businessLabel} hoje.`
+              : `Aqui está o resumo ${businessLabel} em ${formatLongDate(selectedDate)}.`}
           </p>
         </div>
         <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
@@ -62,7 +65,7 @@ export function DashboardPage() {
           <button className="inline-flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm sm:w-auto">
             <img
               src="https://i.pravatar.cc/64?img=12"
-              alt="Guto"
+              alt={greetingName}
               className="h-8 w-8 rounded-full object-cover"
             />
             <span className="min-w-0 flex-1 truncate text-left">
@@ -253,4 +256,34 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
       <span className="font-semibold text-slate-800">{value}</span>
     </li>
   )
+}
+
+function getGreetingName(companyName: string, accountName?: string | null) {
+  if (accountName?.trim()) return accountName.trim().split(/\s+/)[0]
+  const match = companyName.match(/\b(?:do|da|de)\s+(.+)$/i)
+  if (match?.[1]) return match[1].trim().split(/\s+/)[0]
+  const cleaned = companyName.trim()
+  if (!cleaned || cleaned === BUSINESS.company) return BUSINESS.owner
+  return cleaned.split(/\s+/)[0]
+}
+
+function getBusinessLabel(segment: Segment) {
+  switch (segment) {
+    case 'Pizzaria':
+      return 'da sua pizzaria'
+    case 'Restaurante':
+      return 'do seu restaurante'
+    case 'Hamburgueria':
+      return 'da sua hamburgueria'
+    case 'Barbearia':
+      return 'da sua barbearia'
+    case 'Salão de beleza':
+      return 'do seu salão de beleza'
+    case 'Clínica':
+      return 'da sua clínica'
+    case 'Pet Shop':
+      return 'do seu pet shop'
+    default:
+      return 'do seu negócio'
+  }
 }
