@@ -21,11 +21,13 @@ import { useClients } from '../context/ClientsContext'
 import { sendClientWhatsApp } from '../lib/whatsapp'
 import { DatePicker, formatLongDate } from '../components/ui/DatePicker'
 import { usePlan } from '../context/PlanContext'
+import { useSettings } from '../context/SettingsContext'
 import { formatPlanPrice } from '../data/plans'
 
 export function DashboardPage() {
   const { clients, statusCounts, getClient } = useClients()
   const { plan } = usePlan()
+  const { settings } = useSettings()
   const used = Math.min(plan.clientsLimit, Math.max(clients.length, plan.usedClients))
   const [selectedDate, setSelectedDate] = useState(() => new Date())
   const today = useMemo(() => {
@@ -64,7 +66,9 @@ export function DashboardPage() {
               className="h-8 w-8 rounded-full object-cover"
             />
             <span className="min-w-0 flex-1 truncate text-left">
-              <span className="block truncate text-sm font-semibold text-slate-800">{BUSINESS.company}</span>
+              <span className="block truncate text-sm font-semibold text-slate-800">
+                {settings.companyName || BUSINESS.company}
+              </span>
               <span className="text-xs text-slate-400">Plano {plan.name}</span>
             </span>
             <ChevronDown size={14} className="text-slate-400" />

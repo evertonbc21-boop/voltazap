@@ -20,6 +20,7 @@ import {
 } from '../data/mock'
 import type { AudienceKey } from '../types'
 import { useClients } from '../context/ClientsContext'
+import { useSettings } from '../context/SettingsContext'
 import { sendClientWhatsApp } from '../lib/whatsapp'
 
 const audienceIcons: Record<AudienceKey, string> = {
@@ -31,6 +32,7 @@ const audienceIcons: Record<AudienceKey, string> = {
 
 export function CampaignsPage() {
   const { clients, getClient, statusCounts } = useClients()
+  const { settings } = useSettings()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const preselectedId = params.get('clientId')
@@ -332,7 +334,7 @@ export function CampaignsPage() {
             <div className="flex items-center gap-3 bg-[#008069] px-3 py-2.5 text-white">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-400 text-sm">🍕</div>
               <div className="flex-1">
-                <p className="text-sm font-semibold">{BUSINESS.company}</p>
+                <p className="text-sm font-semibold">{settings.companyName || BUSINESS.company}</p>
                 <p className="text-[11px] text-white/80">online</p>
               </div>
             </div>

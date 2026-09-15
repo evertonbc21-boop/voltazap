@@ -15,6 +15,7 @@ import {
 import { BUSINESS } from '../../data/mock'
 import { useClients } from '../../context/ClientsContext'
 import { usePlan } from '../../context/PlanContext'
+import { useSettings } from '../../context/SettingsContext'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: Home, end: true },
@@ -35,6 +36,7 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { clients } = useClients()
   const { plan } = usePlan()
+  const { settings } = useSettings()
   const used = Math.min(plan.clientsLimit, Math.max(clients.length, plan.usedClients))
   const usage = Math.round((used / plan.clientsLimit) * 100)
 
@@ -91,7 +93,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-lg">🍕</div>
               <div>
-                <p className="text-sm font-semibold text-white">{BUSINESS.company}</p>
+                <p className="text-sm font-semibold text-white">{settings.companyName || BUSINESS.company}</p>
                 <p className="text-xs text-slate-400">Plano {plan.name}</p>
               </div>
             </div>
