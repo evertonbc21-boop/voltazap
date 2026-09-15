@@ -42,6 +42,7 @@ export function CampaignsPage() {
   const [realData, setRealData] = useState(true)
   const [queue, setQueue] = useState<typeof clients>([])
   const [sendError, setSendError] = useState('')
+  const [scheduledAt, setScheduledAt] = useState('')
 
   useEffect(() => {
     if (preselectedId) {
@@ -71,6 +72,10 @@ export function CampaignsPage() {
     setSendError('')
     if (recipients.length === 0) {
       setSendError('Selecione pelo menos um cliente.')
+      return
+    }
+    if (!sendNow && !scheduledAt) {
+      setSendError('Escolha a data e o horário do agendamento.')
       return
     }
     const opened = sendClientWhatsApp(recipients[0], message)
@@ -230,6 +235,7 @@ export function CampaignsPage() {
               <p className="mb-4 text-sm text-slate-400">Envie agora ou programe para um melhor horário.</p>
               <div className="space-y-3">
                 <button
+                  type="button"
                   onClick={() => setSendNow(true)}
                   className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left ${
                     sendNow ? 'border-brand bg-rose-50' : 'border-slate-200'
@@ -241,21 +247,29 @@ export function CampaignsPage() {
                     <span className="text-sm text-slate-500">As mensagens serão enviadas imediatamente.</span>
                   </span>
                 </button>
-                <button
-                  onClick={() => setSendNow(false)}
-                  className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left ${
-                    !sendNow ? 'border-brand bg-rose-50' : 'border-slate-200'
-                  }`}
+                <div
+                  className={`rounded-2xl border p-4 ${!sendNow ? 'border-brand bg-rose-50' : 'border-slate-200'}`}
                 >
-                  <span className={`mt-0.5 h-4 w-4 rounded-full border ${!sendNow ? 'border-4 border-brand' : 'border-slate-300'}`} />
-                  <span>
-                    <span className="block font-semibold text-slate-800">Agendar envio</span>
-                    <span className="text-sm text-slate-500">Escolha a data e o horário para enviar.</span>
-                    {!sendNow ? (
-                      <input type="datetime-local" className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                    ) : null}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setSendNow(false)}
+                    className="flex w-full items-start gap-3 text-left"
+                  >
+                    <span className={`mt-0.5 h-4 w-4 rounded-full border ${!sendNow ? 'border-4 border-brand' : 'border-slate-300'}`} />
+                    <span>
+                      <span className="block font-semibold text-slate-800">Agendar envio</span>
+                      <span className="text-sm text-slate-500">Escolha a data e o horário para enviar.</span>
+                    </span>
+                  </button>
+                  {!sendNow ? (
+                    <input
+                      type="datetime-local"
+                      value={scheduledAt}
+                      onChange={(e) => setScheduledAt(e.target.value)}
+                      className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                  ) : null}
+                </div>
               </div>
             </div>
 

@@ -1,6 +1,9 @@
+import { Link } from 'react-router-dom'
 import { BUSINESS } from '../data/mock'
+import { usePlan } from '../context/PlanContext'
 
 export function SettingsPage() {
+  const { plan } = usePlan()
   return (
     <div className="space-y-6">
       <header>
@@ -10,7 +13,13 @@ export function SettingsPage() {
       <section className="max-w-xl space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
         <Field label="Nome do negócio" value={BUSINESS.company} />
         <Field label="Segmento" value="Pizzaria" />
-        <Field label="Plano" value={BUSINESS.plan} />
+        <Field label="Plano" value={`Plano ${plan.name}`} />
+        <Link
+          to="/planos"
+          className="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand"
+        >
+          Ver planos
+        </Link>
         <p className="rounded-xl bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
           O VoltaZap abre o WhatsApp Web/app com a mensagem pronta. Ainda não há API oficial da Meta: você confirma o envio no próprio WhatsApp.
         </p>

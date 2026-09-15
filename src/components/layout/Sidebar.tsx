@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   BarChart3,
+  CreditCard,
   HelpCircle,
   Home,
   LayoutDashboard,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react'
 import { BUSINESS } from '../../data/mock'
 import { useClients } from '../../context/ClientsContext'
+import { usePlan } from '../../context/PlanContext'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: Home, end: true },
@@ -21,6 +23,7 @@ const nav = [
   { to: '/resultados', label: 'Resultados', icon: BarChart3 },
   { to: '/mensagens', label: 'Mensagens', icon: MessageCircle },
   { to: '/relatorios', label: 'Relatórios', icon: LayoutDashboard },
+  { to: '/planos', label: 'Planos', icon: CreditCard },
   { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ]
 
@@ -31,7 +34,9 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { clients } = useClients()
-  const usage = Math.round((clients.length / BUSINESS.clientsLimit) * 100)
+  const { plan } = usePlan()
+  const used = Math.min(plan.clientsLimit, Math.max(clients.length, plan.usedClients))
+  const usage = Math.round((used / plan.clientsLimit) * 100)
 
   return (
     <>
@@ -87,13 +92,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-lg">🍕</div>
               <div>
                 <p className="text-sm font-semibold text-white">{BUSINESS.company}</p>
-                <p className="text-xs text-slate-400">{BUSINESS.plan}</p>
+                <p className="text-xs text-slate-400">Plano {plan.name}</p>
               </div>
             </div>
             <div className="mt-3">
               <div className="mb-1.5 flex justify-between text-[11px] text-slate-400">
                 <span>
-                  {clients.length} de {BUSINESS.clientsLimit.toLocaleString('pt-BR')} clientes
+                  {used.toLocaleString('pt-BR')} de {plan.clientsLimit.toLocaleString('pt-BR')} clientes
                 </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -101,6 +106,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               </div>
             </div>
           </div>
+          <NavLink
+            to="/planos"
+            onClick={onClose}
+            className="mt-3 flex w-full items-center justify-center rounded-xl bg-white/5 px-2 py-2 text-sm font-medium text-white hover:bg-white/10"
+          >
+            Ver planos
+          </NavLink>
 
           <button className="mt-3 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white">
             <HelpCircle size={18} />

@@ -1,6 +1,6 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  CalendarDays,
   ChevronDown,
   CircleDollarSign,
   MessageCircle,
@@ -19,9 +19,23 @@ import { DonutChart } from '../components/ui/DonutChart'
 import { MessageStatusBadge } from '../components/ui/StatusBadge'
 import { useClients } from '../context/ClientsContext'
 import { sendClientWhatsApp } from '../lib/whatsapp'
+import { DatePicker, formatLongDate } from '../components/ui/DatePicker'
+import { usePlan } from '../context/PlanContext'
+import { formatPlanPrice } from '../data/plans'
 
 export function DashboardPage() {
   const { clients, statusCounts, getClient } = useClients()
+  const { plan } = usePlan()
+  const used = Math.min(plan.clientsLimit, Math.max(clients.length, plan.usedClients))
+  const [selectedDate, setSelectedDate] = useState(() => new Date())
+  const today = useMemo(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  }, [])
+  const isToday =
+    selectedDate.getFullYear() === today.getFullYear() &&
+    selectedDate.getMonth() === today.getMonth() &&
+    selectedDate.getDate() === today.getDate()
   const kpis = [
     { label: 'Clientes cadastrados', value: String(clients.length), delta: '+12%', icon: Users, iconBg: 'bg-sky-50 text-sky-500' },
     { label: 'Mensagens enviadas', value: '32', delta: '+23%', icon: Send, iconBg: 'bg-emerald-50 text-emerald-500' },
@@ -35,28 +49,53 @@ export function DashboardPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Olá, Guto! 👋</h2>
-          <p className="mt-1 text-slate-500">Aqui está o resumo da sua pizzaria hoje.</p>
+          <p className="mt-1 text-slate-500">
+            {isToday
+              ? 'Aqui está o resumo da sua pizzaria hoje.'
+              : `Aqui está o resumo da sua pizzaria em ${formatLongDate(selectedDate)}.`}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm">
-            <CalendarDays size={16} />
-            Sexta-feira, 13 de setembro de 2026
-            <ChevronDown size={14} />
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
+        <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+          <DatePicker value={selectedDate} onChange={setSelectedDate} />
+          <button className="inline-flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm sm:w-auto">
             <img
               src="https://i.pravatar.cc/64?img=12"
               alt="Guto"
               className="h-8 w-8 rounded-full object-cover"
             />
-            <span className="text-left">
-              <span className="block text-sm font-semibold text-slate-800">{BUSINESS.company}</span>
-              <span className="text-xs text-slate-400">Conta Pro</span>
+            <span className="min-w-0 flex-1 truncate text-left">
+              <span className="block truncate text-sm font-semibold text-slate-800">{BUSINESS.company}</span>
+              <span className="text-xs text-slate-400">Plano {plan.name}</span>
             </span>
             <ChevronDown size={14} className="text-slate-400" />
           </button>
         </div>
       </header>
+
+      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Plano atual</p>
+            <h3 className="mt-1 text-xl font-bold text-slate-900">Plano {plan.name}</h3>
+            <p className="text-sm text-slate-500">{formatPlanPrice(plan.price)}</p>
+            <p className="mt-2 text-sm font-medium text-slate-700">
+              {used.toLocaleString('pt-BR')} / {plan.clientsLimit.toLocaleString('pt-BR')} clientes utilizados
+            </p>
+            <div className="mt-2 h-1.5 max-w-xs overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-brand"
+                style={{ width: `${Math.round((used / plan.clientsLimit) * 100)}%` }}
+              />
+            </div>
+          </div>
+          <Link
+            to="/planos"
+            className="inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
+          >
+            Gerenciar plano
+          </Link>
+        </div>
+      </section>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {kpis.map((kpi) => {
