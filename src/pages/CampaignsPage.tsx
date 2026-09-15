@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Check,
@@ -10,11 +10,11 @@ import {
   Sparkles,
   Users,
   Wallet,
+  X,
 } from 'lucide-react'
 import {
   AUDIENCE_OPTIONS,
   BUSINESS,
-  DEFAULT_MESSAGE,
   PIZZA_PROMO_IMAGE,
   personalizeMessage,
 } from '../data/mock'
@@ -22,6 +22,13 @@ import type { AudienceKey } from '../types'
 import { useClients } from '../context/ClientsContext'
 import { useSettings } from '../context/SettingsContext'
 import { sendClientWhatsApp } from '../lib/whatsapp'
+import {
+  MESSAGE_VARIABLES,
+  getAiSuggestions,
+  getMessageTemplates,
+  getSegmentEmoji,
+  type MessageMode,
+} from '../data/messageTemplates'
 
 const audienceIcons: Record<AudienceKey, string> = {
   proxima_compra: '⏰',
@@ -29,6 +36,8 @@ const audienceIcons: Record<AudienceKey, string> = {
   muito_tempo: '😴',
   personalizado: '👤',
 }
+
+const MAX_MESSAGE_LENGTH = 1000
 
 export function CampaignsPage() {
   const { clients, getClient, statusCounts } = useClients()
@@ -38,13 +47,22 @@ export function CampaignsPage() {
   const preselectedId = params.get('clientId')
   const [audience, setAudience] = useState<AudienceKey>(preselectedId ? 'personalizado' : 'proxima_compra')
   const [selectedIds, setSelectedIds] = useState<string[]>(preselectedId ? [preselectedId] : [])
-  const [message, setMessage] = useState(DEFAULT_MESSAGE)
+  const [messageMode, setMessageMode] = useState<MessageMode>('ai')
+  const [aiIndex, setAiIndex] = useState(0)
+  const [message, setMessage] = useState(() => getAiSuggestions(settings.segment)[0])
   const [sendNow, setSendNow] = useState(true)
   const [showVars, setShowVars] = useState(false)
   const [realData, setRealData] = useState(true)
   const [queue, setQueue] = useState<typeof clients>([])
   const [sendError, setSendError] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
+  const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const editorRef = useRef<HTMLTextAreaElement>(null)
+
+  const aiSuggestions = useMemo(() => getAiSuggestions(settings.segment), [settings.segment])
+  const templates = useMemo(() => getMessageTemplates(settings.segment), [settings.segment])
+  const segmentEmoji = getSegmentEmoji(settings.segment)
 
   useEffect(() => {
     if (preselectedId) {
@@ -52,6 +70,13 @@ export function CampaignsPage() {
       setSelectedIds([preselectedId])
     }
   }, [preselectedId])
+
+  useEffect(() => {
+    if (messageMode === 'ai') {
+      setMessage(aiSuggestions[aiIndex % aiSuggestions.length])
+      setSelectedTemplateId(null)
+    }
+  }, [settings.segment, aiSuggestions, aiIndex, messageMode])
 
   const audienceCount = useMemo(() => {
     if (audience === 'personalizado') return selectedIds.length || 0
@@ -69,6 +94,65 @@ export function CampaignsPage() {
     }
     return clients.filter((c) => c.status === audience)
   }, [audience, clients, selectedIds])
+
+  const messageModeLabel =
+    messageMode === 'ai' ? 'Sugestão da IA' : messageMode === 'template' ? 'Modelo escolhido' : 'Personalizada'
+
+  function applyMessage(next: string, mode: MessageMode, templateId: string | null = null) {
+    setMessage(next.slice(0, MAX_MESSAGE_LENGTH))
+    setMessageMode(mode)
+    setSelectedTemplateId(templateId)
+    setShowVars(false)
+  }
+
+  function handleAiSuggestion() {
+    setMessageMode('ai')
+    setSelectedTemplateId(null)
+    setMessage(aiSuggestions[aiIndex % aiSuggestions.length])
+  }
+
+  function handleCustomize() {
+    setMessageMode('custom')
+    setSelectedTemplateId(null)
+    setShowVars(false)
+    window.setTimeout(() => editorRef.current?.focus(), 0)
+  }
+
+  function handleRegenerate() {
+    if (messageMode === 'template' && selectedTemplateId) {
+      const current = templates.find((t) => t.id === selectedTemplateId)
+      if (current) {
+        setMessage(current.body.slice(0, MAX_MESSAGE_LENGTH))
+        return
+      }
+    }
+    const nextIndex = (aiIndex + 1) % aiSuggestions.length
+    setAiIndex(nextIndex)
+    setMessageMode('ai')
+    setSelectedTemplateId(null)
+    setMessage(aiSuggestions[nextIndex])
+  }
+
+  function insertVariable(variable: string) {
+    const el = editorRef.current
+    if (!el) {
+      setMessage((m) => `${m}${variable}`.slice(0, MAX_MESSAGE_LENGTH))
+      setMessageMode('custom')
+      setShowVars(false)
+      return
+    }
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const next = `${message.slice(0, start)}${variable}${message.slice(end)}`.slice(0, MAX_MESSAGE_LENGTH)
+    setMessage(next)
+    setMessageMode('custom')
+    setShowVars(false)
+    window.setTimeout(() => {
+      el.focus()
+      const pos = Math.min(start + variable.length, MAX_MESSAGE_LENGTH)
+      el.setSelectionRange(pos, pos)
+    }, 0)
+  }
 
   function handleSendCampaign() {
     setSendError('')
@@ -101,7 +185,11 @@ export function CampaignsPage() {
             Crie e envie mensagens personalizadas para seus clientes e faça eles voltarem a pedir.
           </p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setTemplatesOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:border-brand hover:text-brand"
+        >
           <FileText size={16} />
           Modelos de mensagens
         </button>
@@ -124,6 +212,7 @@ export function CampaignsPage() {
                 return (
                   <button
                     key={option.key}
+                    type="button"
                     onClick={() => setAudience(option.key)}
                     className={`rounded-2xl border p-4 text-left transition ${
                       active ? 'border-brand bg-rose-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'
@@ -174,36 +263,59 @@ export function CampaignsPage() {
             <h3 className="text-lg font-semibold text-slate-800">2. Crie a mensagem</h3>
             <p className="mb-4 text-sm text-slate-400">Use a sugestão da IA ou personalize do seu jeito.</p>
             <div className="mb-4 flex flex-wrap gap-2">
-              <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white">
+              <button
+                type="button"
+                onClick={handleAiSuggestion}
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${
+                  messageMode === 'ai'
+                    ? 'bg-brand text-white'
+                    : 'border border-slate-200 font-medium text-slate-600 hover:border-brand hover:text-brand'
+                }`}
+              >
                 <Sparkles size={14} />
                 Sugestão da IA
               </button>
-              <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600">
+              <button
+                type="button"
+                onClick={handleCustomize}
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                  messageMode === 'custom'
+                    ? 'bg-brand font-semibold text-white'
+                    : 'border border-slate-200 font-medium text-slate-600 hover:border-brand hover:text-brand'
+                }`}
+              >
                 <Pencil size={14} />
                 Personalizar
               </button>
-              <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600">
+              <button
+                type="button"
+                onClick={() => setTemplatesOpen(true)}
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                  messageMode === 'template'
+                    ? 'bg-brand font-semibold text-white'
+                    : 'border border-slate-200 font-medium text-slate-600 hover:border-brand hover:text-brand'
+                }`}
+              >
                 <FileText size={14} />
                 Escolher modelo
               </button>
               <div className="relative ml-auto">
                 <button
+                  type="button"
                   onClick={() => setShowVars((v) => !v)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:border-brand hover:text-brand"
                 >
                   Variáveis
                   <ChevronDown size={14} />
                 </button>
                 {showVars ? (
                   <div className="absolute right-0 z-10 mt-1 w-52 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg">
-                    {['{nome}', '{produto_favorito}', '{frequencia_media}', '{dias_sem_pedir}'].map((v) => (
+                    {MESSAGE_VARIABLES.map((v) => (
                       <button
                         key={v}
+                        type="button"
                         className="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-slate-50"
-                        onClick={() => {
-                          setMessage((m) => `${m} ${v}`)
-                          setShowVars(false)
-                        }}
+                        onClick={() => insertVariable(v)}
                       >
                         {v}
                       </button>
@@ -213,20 +325,27 @@ export function CampaignsPage() {
               </div>
             </div>
             <textarea
+              ref={editorRef}
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              maxLength={MAX_MESSAGE_LENGTH}
+              onChange={(e) => {
+                setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))
+                setMessageMode('custom')
+                setSelectedTemplateId(null)
+              }}
               className="min-h-[220px] w-full resize-y rounded-2xl border border-slate-200 p-4 text-sm leading-relaxed text-slate-700 outline-none focus:border-brand"
             />
             <div className="mt-3 flex items-center justify-between text-sm text-slate-400">
               <button
-                onClick={() => setMessage(DEFAULT_MESSAGE)}
+                type="button"
+                onClick={handleRegenerate}
                 className="inline-flex items-center gap-2 hover:text-brand"
               >
                 <RefreshCw size={14} />
                 Regenerar mensagem
               </button>
               <span>
-                {message.length}/1.000
+                {message.length}/{MAX_MESSAGE_LENGTH.toLocaleString('pt-BR')}
               </span>
             </div>
           </section>
@@ -249,9 +368,7 @@ export function CampaignsPage() {
                     <span className="text-sm text-slate-500">As mensagens serão enviadas imediatamente.</span>
                   </span>
                 </button>
-                <div
-                  className={`rounded-2xl border p-4 ${!sendNow ? 'border-brand bg-rose-50' : 'border-slate-200'}`}
-                >
+                <div className={`rounded-2xl border p-4 ${!sendNow ? 'border-brand bg-rose-50' : 'border-slate-200'}`}>
                   <button
                     type="button"
                     onClick={() => setSendNow(false)}
@@ -292,7 +409,7 @@ export function CampaignsPage() {
                     <Sparkles size={16} className="text-violet-500" />
                     Mensagem
                   </span>
-                  <strong>Sugestão da IA</strong>
+                  <strong>{messageModeLabel}</strong>
                 </li>
                 <li className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-slate-500">
@@ -303,6 +420,7 @@ export function CampaignsPage() {
                 </li>
               </ul>
               <button
+                type="button"
                 onClick={handleSendCampaign}
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark"
               >
@@ -332,7 +450,7 @@ export function CampaignsPage() {
           </div>
           <div className="overflow-hidden rounded-2xl border border-slate-200">
             <div className="flex items-center gap-3 bg-[#008069] px-3 py-2.5 text-white">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-400 text-sm">🍕</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-400 text-sm">{segmentEmoji}</div>
               <div className="flex-1">
                 <p className="text-sm font-semibold">{settings.companyName || BUSINESS.company}</p>
                 <p className="text-[11px] text-white/80">online</p>
@@ -341,13 +459,58 @@ export function CampaignsPage() {
             <div className="wa-pattern min-h-[420px] p-3">
               <div className="ml-auto max-w-[85%] rounded-xl rounded-tr-sm bg-[#d9fdd3] p-3 text-sm text-slate-800 shadow">
                 <p className="whitespace-pre-wrap">{realData ? previewText : message}</p>
-                <img src={PIZZA_PROMO_IMAGE} alt="Pizza promocional" className="mt-3 h-40 w-full rounded-lg object-cover" />
+                <img src={PIZZA_PROMO_IMAGE} alt="Imagem promocional" className="mt-3 h-40 w-full rounded-lg object-cover" />
                 <p className="mt-1 text-right text-[10px] text-slate-400">10:24</p>
               </div>
             </div>
           </div>
         </aside>
       </div>
+
+      {templatesOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTemplatesOpen(false)}>
+          <div
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Escolher modelo</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Modelos adaptados para o segmento <strong>{settings.segment}</strong>.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTemplatesOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                aria-label="Fechar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {templates.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => {
+                    applyMessage(template.body, 'template', template.id)
+                    setTemplatesOpen(false)
+                  }}
+                  className={`w-full rounded-2xl border p-4 text-left transition hover:border-brand ${
+                    selectedTemplateId === template.id ? 'border-brand bg-rose-50' : 'border-slate-200'
+                  }`}
+                >
+                  <p className="font-semibold text-slate-800">{template.title}</p>
+                  <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-slate-500">{template.body}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {queue.length > 0 ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-h-[80vh] w-full max-w-md overflow-auto rounded-2xl bg-white p-5 shadow-2xl">
@@ -363,6 +526,7 @@ export function CampaignsPage() {
                     <span className="block text-xs text-slate-400">{client.whatsapp}</span>
                   </span>
                   <button
+                    type="button"
                     className="shrink-0 text-sm font-semibold text-brand"
                     onClick={() => {
                       sendClientWhatsApp(client, message)
@@ -375,6 +539,7 @@ export function CampaignsPage() {
               ))}
             </ul>
             <button
+              type="button"
               className="mt-4 w-full rounded-xl bg-brand py-2.5 text-sm font-semibold text-white"
               onClick={() => {
                 setQueue([])
