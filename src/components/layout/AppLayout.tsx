@@ -20,7 +20,7 @@ export function AppLayout() {
           </button>
           <span className="font-semibold text-slate-800">🍕 VoltaZap</span>
         </div>
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
+        <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>
