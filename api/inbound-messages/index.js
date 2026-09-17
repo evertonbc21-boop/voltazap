@@ -3,8 +3,8 @@
  * GET /api/inbound-messages?pending=1
  */
 
-import { listInboundEvents } from '../../_lib/inboundStore.js'
-import { sendJson } from '../../_lib/http.js'
+import { listInboundEvents } from '../_lib/inboundStore.js'
+import { sendJson } from '../_lib/http.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

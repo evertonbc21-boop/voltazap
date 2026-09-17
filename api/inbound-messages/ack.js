@@ -4,8 +4,8 @@
  * Body: { ids: string[] }
  */
 
-import { ackInboundEvents } from '../../_lib/inboundStore.js'
-import { getRawBody, parseJsonBody, sendJson } from '../../_lib/http.js'
+import { ackInboundEvents } from '../_lib/inboundStore.js'
+import { getRawBody, parseJsonBody, sendJson } from '../_lib/http.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
