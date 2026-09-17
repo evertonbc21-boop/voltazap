@@ -119,7 +119,7 @@ async function processEvents(eventsRaw: InboundWhatsAppEvent[]) {
       conversationStatus:
         event.analysis?.conversationStatus || event.analysis?.statusConversa || 'replied',
       receivedAtIso: event.receivedAt,
-      messagePreview: `WhatsApp · ${client.nome}`,
+      messagePreview: `WhatsApp · ${client.nome}: ${event.text || ''}`.trim(),
       messageType: event.type || 'text',
     })
 

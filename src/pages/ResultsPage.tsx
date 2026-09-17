@@ -99,7 +99,9 @@ export function ResultsPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Resultados da Campanha</h2>
-          <p className="mt-1 text-slate-500">Acompanhe o desempenho e veja quantos clientes voltaram a pedir.</p>
+          <p className="mt-1 text-slate-500">
+            Acompanhe o desempenho. Respostas do WhatsApp aparecem automaticamente em Respostas e em Mensagens.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button

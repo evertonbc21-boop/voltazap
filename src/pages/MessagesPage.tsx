@@ -21,8 +21,8 @@ export function MessagesPage() {
         <div>
           <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Mensagens</h2>
           <p className="mt-1 text-slate-500">
-            Histórico das mensagens de {settings.companyName}. Respostas reais do WhatsApp entram automaticamente pelo
-            webhook da Meta (e também via registro manual).
+            Histórico das mensagens de {settings.companyName}. Respostas do WhatsApp entram automaticamente aqui e em
+            Resultados assim que chegam no webhook.
           </p>
         </div>
         <button
@@ -58,19 +58,25 @@ export function MessagesPage() {
                   customerName: undefined,
                   phone: msg.fromPhone,
                 })
+                const isWhatsAppInbound = msg.source === 'meta_whatsapp' || msg.direction === 'inbound'
                 return (
                   <tr key={msg.id} className="border-b border-slate-50">
                     <td className="px-5 py-3">
                       <ClientCell client={client} />
                     </td>
-                    <td className="px-3 py-3 text-slate-500">{msg.preview}</td>
+                    <td className="px-3 py-3 text-slate-500">
+                      <span>{msg.preview}</span>
+                      {isWhatsAppInbound ? (
+                        <span className="mt-1 block text-[11px] font-medium text-emerald-600">Meta WhatsApp</span>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-3">
                       <MessageStatusBadge status={msg.status} />
                     </td>
                     <td className="px-3 py-3 text-slate-500">{msg.dateLabel}</td>
                     <td className="px-5 py-3">
                       {msg.reply ? (
-                        msg.reply
+                        <span className="font-medium text-slate-800">“{msg.reply}”</span>
                       ) : (
                         <button
                           type="button"

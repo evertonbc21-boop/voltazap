@@ -89,6 +89,7 @@ function readPersistedState(): StoredState | null {
 function persistState(next: StoredState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    window.dispatchEvent(new Event('voltazap-replies-updated'))
   } catch (error) {
     console.error('voltazap-replies persist failed', error)
   }
@@ -161,6 +162,28 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     persistState(state)
   }, [state])
+
+  // Mantém Mensagens + Resultados sincronizados se o storage mudar (outra aba / ingest).
+  useEffect(() => {
+    const reload = () => {
+      const latest = readPersistedState()
+      if (!latest) return
+      setState((prev) => {
+        const same =
+          prev.replies.length === latest.replies.length &&
+          prev.messages.length === latest.messages.length &&
+          prev.replies[0]?.id === latest.replies[0]?.id &&
+          prev.messages[0]?.id === latest.messages[0]?.id
+        return same ? prev : latest
+      })
+    }
+    window.addEventListener('storage', reload)
+    window.addEventListener('voltazap-replies-updated', reload)
+    return () => {
+      window.removeEventListener('storage', reload)
+      window.removeEventListener('voltazap-replies-updated', reload)
+    }
+  }, [])
 
   const value = useMemo<MessagesContextValue>(() => {
     const hasWaMessage = (waMessageId: string | undefined | null) => {
