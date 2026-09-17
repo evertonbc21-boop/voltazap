@@ -5,7 +5,8 @@ import { findClientByPhone } from '../lib/phoneMatch'
 import { ackInboundMessages, fetchInboundMessages } from '../services/whatsappInbound'
 import type { MessageStatus, ReplyOutcome, ReplySource } from '../types'
 
-const POLL_MS = 2000
+/** Um único poll a cada 10s — evita flood nos logs da Vercel. */
+const POLL_MS = 10_000
 
 const STATUS_MAP: Record<string, MessageStatus> = {
   sent: 'enviada',
@@ -13,6 +14,15 @@ const STATUS_MAP: Record<string, MessageStatus> = {
   read: 'lida',
   failed: 'nao_entregue',
 }
+
+/**
+ * Garante no máximo um setInterval global, mesmo com StrictMode
+ * ou remount do AppLayout.
+ */
+let activePollers = 0
+let sharedTimer: number | null = null
+let sharedInFlight = false
+let sharedSyncFn: (() => Promise<void>) | null = null
 
 function mapSource(source: ReplySource | string | undefined): ReplySource {
   if (source === 'mock') return 'mock'
@@ -32,6 +42,7 @@ export function useWhatsAppInboundSync(enabled = true) {
   const ingestRef = useRef(ingestInboundReply)
   const statusRef = useRef(applyDeliveryStatus)
   const hasWaRef = useRef(hasWaMessage)
+  const cancelledRef = useRef(false)
 
   useEffect(() => {
     clientsRef.current = clients
@@ -47,19 +58,21 @@ export function useWhatsAppInboundSync(enabled = true) {
   useEffect(() => {
     if (!enabled) return
 
-    let cancelled = false
+    cancelledRef.current = false
 
     async function syncOnce() {
-      try {
-        const [pending, all] = await Promise.all([
-          fetchInboundMessages(true),
-          fetchInboundMessages(false),
-        ])
-        if (cancelled) return
+      if (cancelledRef.current) return
+      if (sharedInFlight) return
+      sharedInFlight = true
 
-        // Recupera mensagens já "acked" no servidor mas ausentes no localStorage
-        const byId = new Map<string, (typeof pending)[number]>()
-        for (const event of [...pending, ...all]) {
+      try {
+        // Uma única chamada: pending=0 traz pendentes + já processadas (recuperação).
+        console.log('inbound poll tick', { at: new Date().toISOString(), intervalMs: POLL_MS })
+        const eventsRaw = await fetchInboundMessages(false)
+        if (cancelledRef.current) return
+
+        const byId = new Map<string, (typeof eventsRaw)[number]>()
+        for (const event of eventsRaw) {
           if (event.kind !== 'message') {
             if (event.kind === 'status' && !event.processed) byId.set(event.id, event)
             continue
@@ -86,7 +99,6 @@ export function useWhatsAppInboundSync(enabled = true) {
           const phone = event.fromPhone || ''
           const wamid = event.waMessageId || event.id
 
-          // Já está no storage local do VoltaZap → só confirma ACK
           if (wamid && hasWaRef.current(wamid)) {
             if (!event.processed) acked.push(event.id)
             continue
@@ -104,13 +116,6 @@ export function useWhatsAppInboundSync(enabled = true) {
             })
             client = ensured.client
             clientsRef.current = [client, ...clientsRef.current.filter((c) => c.id !== client!.id)]
-          } else {
-            console.log('whatsapp webhook client matched', {
-              phone,
-              clientId: client.id,
-              name: client.nome,
-              wamid: wamid || null,
-            })
           }
 
           const outcome = (event.analysis?.outcome || 'interessado') as ReplyOutcome
@@ -147,20 +152,42 @@ export function useWhatsAppInboundSync(enabled = true) {
         if (acked.length) await ackInboundMessages(acked)
       } catch (error) {
         console.error('whatsapp inbound sync error', error)
+      } finally {
+        sharedInFlight = false
       }
     }
 
-    void syncOnce()
-    const timer = window.setInterval(() => void syncOnce(), POLL_MS)
-    const onFocus = () => void syncOnce()
+    sharedSyncFn = syncOnce
+    activePollers += 1
+
+    // Só o primeiro mount cria o intervalo compartilhado.
+    if (sharedTimer == null) {
+      void syncOnce()
+      sharedTimer = window.setInterval(() => {
+        void sharedSyncFn?.()
+      }, POLL_MS)
+    }
+
+    const onFocus = () => {
+      void sharedSyncFn?.()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void sharedSyncFn?.()
+    }
+
     window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void syncOnce()
-    })
+    document.addEventListener('visibilitychange', onVisibility)
+
     return () => {
-      cancelled = true
-      window.clearInterval(timer)
+      cancelledRef.current = true
       window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+      activePollers = Math.max(0, activePollers - 1)
+      if (activePollers === 0 && sharedTimer != null) {
+        window.clearInterval(sharedTimer)
+        sharedTimer = null
+        sharedSyncFn = null
+      }
     }
   }, [enabled])
 }
