@@ -7,13 +7,29 @@
 
 import { listInboundEvents } from '../_lib/inboundStore.js'
 import { sendJson } from '../_lib/http.js'
+import { silenceUrlParseDeprecation } from '../_lib/silenceDep0169.js'
+
+silenceUrlParseDeprecation()
 
 const DEFAULT_TIMEOUT_MS = 8000
 const MAX_TIMEOUT_MS = 25000
-const POLL_EVERY_MS = 350
+const POLL_EVERY_MS = 400
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Lê query com WHATWG URL — evita url.parse() (DEP0169). */
+function readTimeoutMs(req) {
+  try {
+    const host = req.headers?.host || 'localhost'
+    const url = new URL(req.url || '/', `https://${host}`)
+    const requested = Number(url.searchParams.get('timeoutMs') ?? DEFAULT_TIMEOUT_MS)
+    if (!Number.isFinite(requested)) return DEFAULT_TIMEOUT_MS
+    return Math.min(MAX_TIMEOUT_MS, Math.max(1000, requested))
+  } catch {
+    return DEFAULT_TIMEOUT_MS
+  }
 }
 
 export default async function handler(req, res) {
@@ -22,11 +38,7 @@ export default async function handler(req, res) {
     return sendJson(res, 405, { error: 'method_not_allowed' })
   }
 
-  const requested = Number(req.query.timeoutMs ?? DEFAULT_TIMEOUT_MS)
-  const timeoutMs = Math.min(
-    MAX_TIMEOUT_MS,
-    Math.max(1000, Number.isFinite(requested) ? requested : DEFAULT_TIMEOUT_MS),
-  )
+  const timeoutMs = readTimeoutMs(req)
   const deadline = Date.now() + timeoutMs
 
   try {
@@ -36,10 +48,6 @@ export default async function handler(req, res) {
       const events = await listInboundEvents({ pendingOnly: true })
       const messages = events.filter((e) => e.kind === 'message')
       if (messages.length > 0) {
-        console.log('inbound wait resolved', {
-          count: messages.length,
-          waitedMs: timeoutMs - Math.max(0, deadline - Date.now()),
-        })
         return sendJson(res, 200, {
           ok: true,
           waited: true,

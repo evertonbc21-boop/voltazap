@@ -1,10 +1,13 @@
+import { listInboundEvents } from '../_lib/inboundStore.js'
+import { sendJson } from '../_lib/http.js'
+import { silenceUrlParseDeprecation } from '../_lib/silenceDep0169.js'
+
+silenceUrlParseDeprecation()
+
 /**
  * Lista eventos inbound pendentes para o front sincronizar com localStorage.
  * GET /api/inbound-messages?pending=1
  */
-
-import { listInboundEvents } from '../_lib/inboundStore.js'
-import { sendJson } from '../_lib/http.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -13,7 +16,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const pendingOnly = String(req.query.pending ?? '1') !== '0'
+    const host = req.headers?.host || 'localhost'
+    const url = new URL(req.url || '/', `https://${host}`)
+    const pendingOnly = url.searchParams.get('pending') !== '0'
     const events = await listInboundEvents({ pendingOnly })
 
     return sendJson(res, 200, {

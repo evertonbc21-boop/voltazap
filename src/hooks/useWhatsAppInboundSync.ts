@@ -11,8 +11,7 @@ import type { InboundWhatsAppEvent, MessageStatus, ReplyOutcome, ReplySource } f
 
 /** Timeout do long-poll no servidor (reconecta na hora). */
 const WAIT_MS = 8_000
-const LOCK_KEY = 'voltazap-inbound-poll-leader'
-const TAB_ID = `tab-${Math.random().toString(36).slice(2)}-${Date.now()}`
+const LOCK_NAME = 'voltazap-inbound-sync'
 
 const STATUS_MAP: Record<string, MessageStatus> = {
   sent: 'enviada',
@@ -38,19 +37,6 @@ function mapSource(source: ReplySource | string | undefined): ReplySource {
   if (source === 'mock') return 'mock'
   if (source === 'manual') return 'manual'
   return 'meta_whatsapp'
-}
-
-function claimLeadership(): boolean {
-  try {
-    const now = Date.now()
-    const raw = localStorage.getItem(LOCK_KEY)
-    const lock = raw ? (JSON.parse(raw) as { id: string; until: number }) : null
-    if (lock && lock.until > now && lock.id !== TAB_ID) return false
-    localStorage.setItem(LOCK_KEY, JSON.stringify({ id: TAB_ID, until: now + WAIT_MS + 5_000 }))
-    return true
-  } catch {
-    return true
-  }
 }
 
 async function processEvents(eventsRaw: InboundWhatsAppEvent[]) {
@@ -131,22 +117,18 @@ async function processEvents(eventsRaw: InboundWhatsAppEvent[]) {
 }
 
 async function hydrateOnce(signal: AbortSignal) {
-  if (!claimLeadership()) return
-  console.log('inbound hydrate', { at: new Date().toISOString() })
   const events = await fetchInboundMessages(false)
   if (signal.aborted) return
   await processEvents(events)
 }
 
-async function runRealtimeLoop(signal: AbortSignal) {
-  // 1) captura o que já estava pendente / para recuperar
+async function runWaitLoop(signal: AbortSignal) {
   try {
     await hydrateOnce(signal)
   } catch (error) {
     if (!signal.aborted) console.error('whatsapp inbound hydrate error', error)
   }
 
-  // 2) long-poll contínuo → chega mensagem no webhook ≈ aparece na hora
   while (!signal.aborted) {
     if (document.visibilityState === 'hidden') {
       await new Promise<void>((resolve) => {
@@ -157,10 +139,14 @@ async function runRealtimeLoop(signal: AbortSignal) {
           }
         }
         document.addEventListener('visibilitychange', onVis)
-        signal.addEventListener('abort', () => {
-          document.removeEventListener('visibilitychange', onVis)
-          resolve()
-        }, { once: true })
+        signal.addEventListener(
+          'abort',
+          () => {
+            document.removeEventListener('visibilitychange', onVis)
+            resolve()
+          },
+          { once: true },
+        )
       })
       if (signal.aborted) break
       try {
@@ -171,25 +157,31 @@ async function runRealtimeLoop(signal: AbortSignal) {
       continue
     }
 
-    if (!claimLeadership()) {
-      await new Promise((r) => setTimeout(r, 2_000))
-      continue
-    }
-
     try {
-      console.log('inbound wait tick', { at: new Date().toISOString(), timeoutMs: WAIT_MS })
       const pending = await waitInboundMessages(WAIT_MS, signal)
       if (signal.aborted) break
-      if (pending.length) {
-        console.log('inbound wait got messages', { count: pending.length })
-        await processEvents(pending)
-      }
+      if (pending.length) await processEvents(pending)
     } catch (error) {
       if (signal.aborted) break
       console.error('whatsapp inbound wait error', error)
       await new Promise((r) => setTimeout(r, 1_500))
     }
   }
+}
+
+/**
+ * Uma única aba mantém o long-poll (Web Locks). Evita 2× GET /wait no mesmo segundo.
+ */
+async function runRealtimeLoop(signal: AbortSignal) {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+  if (locks?.request) {
+    await locks.request(LOCK_NAME, { mode: 'exclusive' }, async () => {
+      if (signal.aborted) return
+      await runWaitLoop(signal)
+    })
+    return
+  }
+  await runWaitLoop(signal)
 }
 
 function startRealtime() {
@@ -205,13 +197,6 @@ function stopRealtimeIfIdle() {
   loopAbort = null
   started = false
   handlers = null
-  try {
-    const raw = localStorage.getItem(LOCK_KEY)
-    const lock = raw ? (JSON.parse(raw) as { id: string }) : null
-    if (lock?.id === TAB_ID) localStorage.removeItem(LOCK_KEY)
-  } catch {
-    /* ignore */
-  }
 }
 
 /**
