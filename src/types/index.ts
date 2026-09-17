@@ -17,11 +17,41 @@ export type ReplyOutcome =
   | 'em_negociacao'
   | 'sem_resposta'
 
+export type ReplySource = 'manual' | 'meta_whatsapp' | 'whatsapp_cloud' | 'mock'
+
 export type AudienceKey =
   | 'proxima_compra'
   | 'atrasado'
   | 'muito_tempo'
   | 'personalizado'
+
+/** Evento inbound da Cloud API (servidor → front). */
+export interface InboundWhatsAppEvent {
+  id: string
+  kind: 'message' | 'status'
+  waMessageId?: string
+  fromPhone?: string
+  contactName?: string
+  text?: string
+  receivedAt: string
+  timestamp?: number
+  type?: string
+  status?: string
+  source: ReplySource
+  processed?: boolean
+  analysis?: {
+    intent?: string
+    intentLabel?: string
+    outcome?: ReplyOutcome
+    orderValue?: number
+    conversationStatus?: string
+    confidence?: number
+    pedidoRealizado?: boolean
+    valorPedido?: number | null
+    statusConversa?: string
+    typebotReady?: boolean
+  }
+}
 
 export interface Client {
   id: string
@@ -52,6 +82,11 @@ export interface CampaignReply {
   outcome: ReplyOutcome
   orderValue?: number
   datetime: string
+  source?: ReplySource
+  intent?: string
+  fromPhone?: string
+  waMessageId?: string
+  conversationStatus?: string
 }
 
 export interface ConversationMessage {

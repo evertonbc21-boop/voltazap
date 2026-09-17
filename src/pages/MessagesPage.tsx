@@ -1,15 +1,40 @@
-import { recentMessages } from '../data/mock'
+import { useState } from 'react'
+import { MessageSquarePlus } from 'lucide-react'
 import { ClientCell } from '../components/ui/Avatar'
 import { MessageStatusBadge } from '../components/ui/StatusBadge'
+import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
+import { useMessages } from '../context/MessagesContext'
+import { useSettings } from '../context/SettingsContext'
 
 export function MessagesPage() {
   const { getClient } = useClients()
+  const { settings } = useSettings()
+  const { messages } = useMessages()
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [preselected, setPreselected] = useState<string | null>(null)
+
   return (
     <div className="space-y-6">
-      <header>
-        <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Mensagens</h2>
-        <p className="mt-1 text-slate-500">Histórico demonstrativo das mensagens enviadas pela Pizzaria do Guto.</p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Mensagens</h2>
+          <p className="mt-1 text-slate-500">
+            Histórico das mensagens enviadas por {settings.companyName}. Respostas reais do WhatsApp entram quando você
+            registra manualmente.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setPreselected(null)
+            setRegisterOpen(true)
+          }}
+          className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
+        >
+          <MessageSquarePlus size={16} />
+          Registrar resposta
+        </button>
       </header>
       <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="overflow-x-auto scrollbar-thin">
@@ -24,7 +49,7 @@ export function MessagesPage() {
               </tr>
             </thead>
             <tbody>
-              {recentMessages.map((msg) => {
+              {messages.map((msg) => {
                 const client = getClient(msg.clientId)
                 if (!client) return null
                 return (
@@ -37,7 +62,22 @@ export function MessagesPage() {
                       <MessageStatusBadge status={msg.status} />
                     </td>
                     <td className="px-3 py-3 text-slate-500">{msg.dateLabel}</td>
-                    <td className="px-5 py-3">{msg.reply ?? '-'}</td>
+                    <td className="px-5 py-3">
+                      {msg.reply ? (
+                        msg.reply
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreselected(msg.clientId)
+                            setRegisterOpen(true)
+                          }}
+                          className="text-sm font-medium text-brand hover:underline"
+                        >
+                          Registrar
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -45,6 +85,11 @@ export function MessagesPage() {
           </table>
         </div>
       </section>
+      <RegisterReplyModal
+        open={registerOpen}
+        onClose={() => setRegisterOpen(false)}
+        preselectedClientId={preselected}
+      />
     </div>
   )
 }

@@ -11,6 +11,4 @@ export async function sendCampaignMessages(payload: {
   return { queued: true, provider: 'whatsapp-web' as const, remaining: payload.clients.slice(1) }
 }
 
-export async function suggestMessage(_context: { audience: string }) {
-  return { provider: 'mock' as const }
-}
+export { suggestCampaignMessage as suggestMessage } from './aiSuggest'

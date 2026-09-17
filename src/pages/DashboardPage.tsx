@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ChevronDown,
   CircleDollarSign,
   MessageCircle,
   Pizza,
@@ -12,24 +11,28 @@ import {
   BUSINESS,
   DEFAULT_MESSAGE,
   PIZZA_IMAGE,
-  recentMessages,
+  formatCurrency,
 } from '../data/mock'
 import { Avatar, ClientCell } from '../components/ui/Avatar'
 import { DonutChart } from '../components/ui/DonutChart'
 import { MessageStatusBadge } from '../components/ui/StatusBadge'
 import { useClients } from '../context/ClientsContext'
+import { useMessages } from '../context/MessagesContext'
 import { sendClientWhatsApp } from '../lib/whatsapp'
 import { DatePicker, formatLongDate } from '../components/ui/DatePicker'
 import { usePlan } from '../context/PlanContext'
 import { useSettings } from '../context/SettingsContext'
 import type { Segment } from '../context/SettingsContext'
 import { formatPlanPrice } from '../data/plans'
+import { AccountMenu } from '../components/AccountMenu'
+import { VoltaZapWordmark } from '../components/VoltaZapWordmark'
 
 export function DashboardPage() {
   const { clients, statusCounts, getClient } = useClients()
+  const { messages, stats } = useMessages()
   const { plan, account } = usePlan()
   const { settings } = useSettings()
-  const used = Math.min(plan.clientsLimit, Math.max(clients.length, plan.usedClients))
+  const used = Math.min(plan.clientsLimit, clients.length)
   const greetingName = getGreetingName(settings.companyName, account?.nome)
   const businessLabel = getBusinessLabel(settings.segment)
   const [selectedDate, setSelectedDate] = useState(() => new Date())
@@ -41,18 +44,25 @@ export function DashboardPage() {
     selectedDate.getFullYear() === today.getFullYear() &&
     selectedDate.getMonth() === today.getMonth() &&
     selectedDate.getDate() === today.getDate()
+
   const kpis = [
-    { label: 'Clientes cadastrados', value: String(clients.length), delta: '+12%', icon: Users, iconBg: 'bg-sky-50 text-sky-500' },
-    { label: 'Mensagens enviadas', value: '32', delta: '+23%', icon: Send, iconBg: 'bg-emerald-50 text-emerald-500' },
-    { label: 'Respostas recebidas', value: '18', delta: '+12%', icon: MessageCircle, iconBg: 'bg-violet-50 text-violet-500' },
-    { label: 'Pedidos recuperados', value: '11', delta: '+37%', icon: Pizza, iconBg: 'bg-orange-50 text-orange-500' },
-    { label: 'Faturamento recuperado', value: 'R$ 687', delta: '+41%', icon: CircleDollarSign, iconBg: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Clientes cadastrados', value: String(clients.length), delta: '+12%', icon: Users, iconBg: 'bg-sky-50 text-sky-500', highlight: false },
+    { label: 'Mensagens enviadas', value: String(messages.length), delta: '+23%', icon: Send, iconBg: 'bg-emerald-50 text-emerald-500', highlight: false },
+    { label: 'Respostas recebidas', value: String(stats.totalReplies), delta: '+12%', icon: MessageCircle, iconBg: 'bg-violet-50 text-violet-500', highlight: false },
+    { label: 'Pedidos recuperados', value: String(stats.orders), delta: '+37%', icon: Pizza, iconBg: 'bg-orange-50 text-orange-500', highlight: false },
+    { label: 'Faturamento recuperado', value: formatCurrency(stats.revenue), delta: '+41%', icon: CircleDollarSign, iconBg: 'bg-emerald-50 text-emerald-600', highlight: true },
   ]
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+        <div className="min-w-0">
+          <VoltaZapWordmark
+            variant="onLight"
+            className="mb-3"
+            markClassName="h-10 w-10 sm:h-11 sm:w-11"
+            textClassName="text-[1.55rem] sm:text-[1.7rem]"
+          />
           <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Olá, {greetingName}! 👋</h2>
           <p className="mt-1 text-slate-500">
             {isToday
@@ -61,21 +71,8 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+          <AccountMenu />
           <DatePicker value={selectedDate} onChange={setSelectedDate} />
-          <button className="inline-flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm sm:w-auto">
-            <img
-              src="https://i.pravatar.cc/64?img=12"
-              alt={greetingName}
-              className="h-8 w-8 rounded-full object-cover"
-            />
-            <span className="min-w-0 flex-1 truncate text-left">
-              <span className="block truncate text-sm font-semibold text-slate-800">
-                {settings.companyName || BUSINESS.company}
-              </span>
-              <span className="text-xs text-slate-400">Plano {plan.name}</span>
-            </span>
-            <ChevronDown size={14} className="text-slate-400" />
-          </button>
         </div>
       </header>
 
@@ -108,13 +105,20 @@ export function DashboardPage() {
         {kpis.map((kpi) => {
           const Icon = kpi.icon
           return (
-            <article key={kpi.label} className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <div className={`mb-4 inline-flex rounded-xl p-2.5 ${kpi.iconBg}`}>
-                <Icon size={18} />
+            <article
+              key={kpi.label}
+              className={`min-w-0 rounded-2xl border p-3 shadow-sm ${
+                kpi.highlight
+                  ? 'border-emerald-200 bg-emerald-50/40 ring-1 ring-emerald-100'
+                  : 'border-slate-100 bg-white'
+              }`}
+            >
+              <div className={`mb-2 inline-flex rounded-lg p-2 ${kpi.iconBg}`}>
+                <Icon size={16} />
               </div>
-              <p className="text-3xl font-bold text-slate-900">{kpi.value}</p>
-              <p className="mt-1 text-sm text-slate-500">{kpi.label}</p>
-              <p className="mt-3 text-xs font-semibold text-emerald-500">
+              <p className="text-2xl font-bold text-slate-900">{kpi.value}</p>
+              <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">{kpi.label}</p>
+              <p className={`mt-2 text-xs font-semibold ${kpi.highlight ? 'text-emerald-600' : 'text-emerald-500'}`}>
                 {kpi.delta} <span className="font-normal text-slate-400">vs. mês anterior</span>
               </p>
             </article>
@@ -184,7 +188,7 @@ export function DashboardPage() {
             </Link>
           </div>
           <p className="px-5 pb-3 text-sm text-amber-700">
-            Esta tabela é um exemplo. A conversa do Everton não foi enviada ao seu WhatsApp. Para enviar de verdade, cadastre o número real em Clientes e clique em Enviar.
+            Após falar no WhatsApp, use “Registrar resposta” em Resultados ou Mensagens para o relatório atualizar.
           </p>
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[720px] text-left text-sm">
@@ -198,7 +202,7 @@ export function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentMessages.map((msg) => {
+                {messages.slice(0, 5).map((msg) => {
                   const client = getClient(msg.clientId)
                   if (!client) return null
                   return (

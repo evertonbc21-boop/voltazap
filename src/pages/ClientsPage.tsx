@@ -1,23 +1,31 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronDown, MoreHorizontal, Plus, Search, Send, Upload } from 'lucide-react'
 import { DEFAULT_MESSAGE, formatCurrency } from '../data/mock'
 import type { ClientStatus } from '../types'
 import { ClientCell } from '../components/ui/Avatar'
 import { ClientStatusBadge } from '../components/ui/StatusBadge'
 import { AddClientModal } from '../components/AddClientModal'
+import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
 import { sendClientWhatsApp } from '../lib/whatsapp'
 
 const PAGE_SIZE = 10
 
 export function ClientsPage() {
-  const { clients, statusCounts } = useClients()
+  const { clients, statusCounts, addClient } = useClients()
+  const navigate = useNavigate()
+  const fileRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'todos' | ClientStatus>('todos')
   const [sort, setSort] = useState('ultimo')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string[]>([])
   const [addOpen, setAddOpen] = useState(false)
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [importHint, setImportHint] = useState('')
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [registerClientId, setRegisterClientId] = useState<string | null>(null)
 
   const summaryCards = [
     { key: 'normal' as const, label: 'Clientes normais', hint: '(não contactar)', value: statusCounts.normal, icon: '👥', className: 'bg-emerald-50 border-emerald-100' },
@@ -50,6 +58,51 @@ export function ClientsPage() {
 
   const allOnPage = slice.length > 0 && slice.every((c) => selected.includes(c.id))
 
+  async function handleCsvImport(file: File | null) {
+    if (!file) return
+    const text = await file.text()
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+    if (lines.length < 2) {
+      setImportHint('CSV vazio. Use cabeçalho: nome,whatsapp,produto')
+      return
+    }
+
+    const header = lines[0].toLowerCase()
+    const hasHeader = header.includes('nome') || header.includes('whatsapp')
+    const rows = hasHeader ? lines.slice(1) : lines
+    let imported = 0
+
+    for (const row of rows) {
+      const parts = row.split(/[,;]/).map((p) => p.trim().replace(/^"|"$/g, ''))
+      const nome = parts[0]
+      const whatsapp = parts[1]
+      const produto = parts[2] || 'Pedido favorito'
+      if (!nome || !whatsapp || whatsapp.replace(/\D/g, '').length < 10) continue
+      addClient({
+        nome,
+        whatsapp,
+        ultimoPedido: new Date().toLocaleDateString('pt-BR'),
+        frequenciaMedia: 14,
+        produtoFavorito: produto,
+        valorMedio: 50,
+        quantidadePedidos: 1,
+        status: 'proxima_compra',
+      })
+      imported += 1
+    }
+
+    setPage(1)
+    setImportHint(
+      imported > 0
+        ? `${imported} cliente(s) importado(s) com sucesso.`
+        : 'Nenhuma linha válida. Formato: nome,whatsapp,produto',
+    )
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -61,11 +114,23 @@ export function ClientsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => void handleCsvImport(e.target.files?.[0] ?? null)}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:border-brand hover:text-brand"
+          >
             <Upload size={16} />
             Importar planilha (CSV)
           </button>
           <button
+            type="button"
             onClick={() => setAddOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark"
           >
@@ -74,6 +139,10 @@ export function ClientsPage() {
           </button>
         </div>
       </header>
+
+      {importHint ? (
+        <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{importHint}</p>
+      ) : null}
 
       <div className="flex flex-col gap-3 lg:flex-row">
         <label className="relative flex-1">
@@ -125,6 +194,7 @@ export function ClientsPage() {
         {summaryCards.map((card) => (
           <button
             key={card.key}
+            type="button"
             onClick={() => {
               setStatus(card.key)
               setPage(1)
@@ -194,17 +264,60 @@ export function ClientsPage() {
                     <ClientStatusBadge status={client.status} />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                    <div className="relative flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={() => sendClientWhatsApp(client, DEFAULT_MESSAGE)}
                         className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-brand"
                       >
                         <Send size={14} />
                         Enviar
                       </button>
-                      <button className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="Mais ações">
+                      <button
+                        type="button"
+                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+                        aria-label="Mais ações"
+                        aria-expanded={menuOpenId === client.id}
+                        onClick={() => setMenuOpenId((id) => (id === client.id ? null : client.id))}
+                      >
                         <MoreHorizontal size={16} />
                       </button>
+                      {menuOpenId === client.id ? (
+                        <div className="absolute right-0 top-8 z-20 w-48 rounded-xl border border-slate-200 bg-white p-1 text-sm shadow-lg">
+                          <button
+                            type="button"
+                            className="block w-full rounded-lg px-3 py-2 text-left hover:bg-slate-50"
+                            onClick={() => {
+                              setMenuOpenId(null)
+                              navigate(`/campanhas?clientId=${client.id}`)
+                            }}
+                          >
+                            Criar campanha
+                          </button>
+                          <button
+                            type="button"
+                            className="block w-full rounded-lg px-3 py-2 text-left hover:bg-slate-50"
+                            onClick={() => {
+                              setMenuOpenId(null)
+                              setRegisterClientId(client.id)
+                              setRegisterOpen(true)
+                            }}
+                          >
+                            Registrar resposta
+                          </button>
+                          <button
+                            type="button"
+                            className="block w-full rounded-lg px-3 py-2 text-left hover:bg-slate-50"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(client.whatsapp)
+                              setMenuOpenId(null)
+                              setImportHint(`WhatsApp de ${client.nome} copiado.`)
+                            }}
+                          >
+                            Copiar WhatsApp
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -224,6 +337,11 @@ export function ClientsPage() {
         onClose={() => setAddOpen(false)}
         onAdded={() => setPage(1)}
       />
+      <RegisterReplyModal
+        open={registerOpen}
+        onClose={() => setRegisterOpen(false)}
+        preselectedClientId={registerClientId}
+      />
     </div>
   )
 }
@@ -233,6 +351,7 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
   return (
     <div className="flex items-center gap-1">
       <button
+        type="button"
         disabled={page === 1}
         onClick={() => onChange(page - 1)}
         className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-50 disabled:opacity-40"
@@ -241,6 +360,7 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
       </button>
       {items.map((n) => (
         <button
+          type="button"
           key={n}
           onClick={() => onChange(n)}
           className={`h-8 min-w-8 rounded-lg px-2 text-sm ${page === n ? 'bg-brand text-white' : 'text-slate-500 hover:bg-slate-50'}`}
@@ -250,6 +370,7 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
       ))}
       {total > 10 ? <span className="px-1 text-slate-400">…</span> : null}
       <button
+        type="button"
         disabled={page === total}
         onClick={() => onChange(page + 1)}
         className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-50 disabled:opacity-40"

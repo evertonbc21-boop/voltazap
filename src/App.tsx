@@ -11,27 +11,32 @@ import { MessagesPage } from './pages/MessagesPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { PlansPage } from './pages/PlansPage'
+import { MessagesProvider } from './context/MessagesContext'
+import { LoginPage } from './pages/LoginPage'
 
 export default function App() {
   return (
     <ClientsProvider>
       <PlanProvider>
         <SettingsProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/clientes" element={<ClientsPage />} />
-                <Route path="/campanhas" element={<CampaignsPage />} />
-                <Route path="/resultados" element={<ResultsPage />} />
-                <Route path="/mensagens" element={<MessagesPage />} />
-                <Route path="/relatorios" element={<ReportsPage />} />
-                <Route path="/planos" element={<PlansPage />} />
-                <Route path="/configuracoes" element={<SettingsPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
+          <MessagesProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/clientes" element={<ClientsPage />} />
+                  <Route path="/campanhas" element={<CampaignsPage />} />
+                  <Route path="/resultados" element={<ResultsPage />} />
+                  <Route path="/mensagens" element={<MessagesPage />} />
+                  <Route path="/relatorios" element={<ReportsPage />} />
+                  <Route path="/planos" element={<PlansPage />} />
+                  <Route path="/configuracoes" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </MessagesProvider>
         </SettingsProvider>
       </PlanProvider>
     </ClientsProvider>

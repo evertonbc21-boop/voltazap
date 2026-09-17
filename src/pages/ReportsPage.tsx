@@ -1,13 +1,19 @@
+import { formatCurrency } from '../data/mock'
 import { useClients } from '../context/ClientsContext'
+import { useMessages } from '../context/MessagesContext'
 
 export function ReportsPage() {
   const { statusCounts } = useClients()
+  const { stats } = useMessages()
   const rows = [
-    { label: 'Clientes reativados no mês', value: '11' },
-    { label: 'Taxa de resposta', value: '40%' },
-    { label: 'Taxa de pedidos', value: '24,4%' },
-    { label: 'Faturamento recuperado', value: 'R$ 687' },
-    { label: 'Clientes prontos para campanha', value: String(statusCounts.proxima_compra + statusCounts.atrasado) },
+    { label: 'Clientes reativados no mês', value: String(stats.orders) },
+    { label: 'Taxa de resposta', value: stats.responseRateLabel },
+    { label: 'Taxa de pedidos', value: stats.orderRateLabel },
+    { label: 'Faturamento recuperado', value: formatCurrency(stats.revenue) },
+    {
+      label: 'Clientes prontos para campanha',
+      value: String(statusCounts.proxima_compra + statusCounts.atrasado),
+    },
   ]
 
   return (

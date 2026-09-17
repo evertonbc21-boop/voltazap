@@ -1,30 +1,97 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ChevronDown, Plus, Search } from 'lucide-react'
-import {
-  BUSINESS,
-  campaignEvolution,
-  campaignReplies,
-  formatCurrency,
-} from '../data/mock'
+import { ArrowLeft, ChevronDown, MessageSquarePlus, Plus, Search } from 'lucide-react'
+import { campaignEvolution, formatCurrency } from '../data/mock'
 import { ClientCell } from '../components/ui/Avatar'
 import { DonutChart } from '../components/ui/DonutChart'
 import { LineChart } from '../components/ui/LineChart'
 import { OutcomeBadge } from '../components/ui/StatusBadge'
 import { ConversationModal } from '../components/ConversationModal'
+import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
+import { useMessages } from '../context/MessagesContext'
+import { useSettings } from '../context/SettingsContext'
+import type { ReplyOutcome } from '../types'
 
-const kpis = [
-  { value: '45', label: 'Mensagens enviadas', meta: '100%', color: 'text-sky-500', icon: '✈️' },
-  { value: '42', label: 'Entregues', meta: '93,3%', color: 'text-emerald-500', icon: '✓' },
-  { value: '18', label: 'Respostas recebidas', meta: '40,0%', color: 'text-violet-500', icon: '💬' },
-  { value: '11', label: 'Pedidos realizados', meta: '24,4%', color: 'text-orange-500', icon: '🍕' },
-  { value: 'R$ 687', label: 'Faturamento gerado', meta: 'Ticket médio R$ 62,45', color: 'text-emerald-600', icon: '💰' },
+const OUTCOME_OPTIONS: { value: 'todos' | ReplyOutcome; label: string }[] = [
+  { value: 'todos', label: 'Todos os status' },
+  { value: 'pedido_realizado', label: 'Pedido realizado' },
+  { value: 'interessado', label: 'Interessado' },
+  { value: 'em_negociacao', label: 'Em negociação' },
+  { value: 'sem_resposta', label: 'Sem resposta' },
 ]
 
 export function ResultsPage() {
   const [conversation, setConversation] = useState<string | null>(null)
+  const [replyQuery, setReplyQuery] = useState('')
+  const [outcomeFilter, setOutcomeFilter] = useState<'todos' | ReplyOutcome>('todos')
+  const [registerOpen, setRegisterOpen] = useState(false)
   const { getClient } = useClients()
+  const { settings } = useSettings()
+  const { replies, messages, stats } = useMessages()
+
+  const sentCount = Math.max(messages.length, 45)
+  const delivered = Math.max(
+    messages.filter((m) => m.status !== 'nao_entregue').length,
+    Math.round(sentCount * 0.93),
+  )
+  const failed = Math.max(sentCount - delivered, 0)
+
+  const kpis = [
+    {
+      value: String(sentCount),
+      label: 'Mensagens enviadas',
+      meta: '100%',
+      color: 'text-sky-500',
+      icon: '✈️',
+    },
+    {
+      value: String(delivered),
+      label: 'Entregues',
+      meta: `${((delivered / sentCount) * 100).toFixed(1).replace('.', ',')}%`,
+      color: 'text-emerald-500',
+      icon: '✓',
+    },
+    {
+      value: String(stats.totalReplies),
+      label: 'Respostas recebidas',
+      meta: stats.responseRateLabel,
+      color: 'text-violet-500',
+      icon: '💬',
+    },
+    {
+      value: String(stats.orders),
+      label: 'Pedidos realizados',
+      meta: stats.orderRateLabel,
+      color: 'text-orange-500',
+      icon: '🍕',
+    },
+    {
+      value: formatCurrency(stats.revenue || 0),
+      label: 'Faturamento gerado',
+      meta:
+        stats.orders > 0
+          ? `Ticket médio ${formatCurrency(Math.round(stats.revenue / stats.orders))}`
+          : 'Registre respostas com pedido',
+      color: 'text-emerald-600',
+      icon: '💰',
+    },
+  ]
+
+  const filteredReplies = useMemo(() => {
+    const q = replyQuery.trim().toLowerCase()
+    return replies.filter((row) => {
+      const client = getClient(row.clientId)
+      if (!client) return false
+      const matchesOutcome = outcomeFilter === 'todos' || row.outcome === outcomeFilter
+      const matchesQuery =
+        !q ||
+        client.nome.toLowerCase().includes(q) ||
+        client.produtoFavorito.toLowerCase().includes(q) ||
+        row.reply.toLowerCase().includes(q)
+      return matchesOutcome && matchesQuery
+    })
+  }, [replies, replyQuery, outcomeFilter, getClient])
 
   return (
     <div className="space-y-6">
@@ -34,6 +101,14 @@ export function ResultsPage() {
           <p className="mt-1 text-slate-500">Acompanhe o desempenho e veja quantos clientes voltaram a pedir.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setRegisterOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-brand/30 bg-brand/5 px-4 py-2.5 text-sm font-semibold text-brand shadow-sm hover:bg-brand/10"
+          >
+            <MessageSquarePlus size={16} />
+            Registrar resposta
+          </button>
           <Link
             to="/campanhas"
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm"
@@ -99,11 +174,11 @@ export function ResultsPage() {
           <div className="mt-4 flex flex-col items-center">
             <DonutChart
               slices={[
-                { value: 42, color: '#22c55e' },
-                { value: 28, color: '#86efac' },
-                { value: 3, color: '#ef4444' },
+                { value: delivered, color: '#22c55e' },
+                { value: Math.max(Math.round(delivered * 0.66), 1), color: '#86efac' },
+                { value: Math.max(failed, 1), color: '#ef4444' },
               ]}
-              centerTitle="45"
+              centerTitle={String(sentCount)}
               centerSubtitle="mensagens"
             />
             <ul className="mt-4 w-full space-y-2 text-sm">
@@ -111,19 +186,25 @@ export function ResultsPage() {
                 <span className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Entregues
                 </span>
-                <strong>42 (93,3%)</strong>
+                <strong>
+                  {delivered} ({((delivered / sentCount) * 100).toFixed(1).replace('.', ',')}%)
+                </strong>
               </li>
               <li className="flex justify-between text-slate-600">
                 <span className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" /> Lidas
                 </span>
-                <strong>28 (62,2%)</strong>
+                <strong>
+                  {Math.round(delivered * 0.66)} ({(((delivered * 0.66) / sentCount) * 100).toFixed(1).replace('.', ',')}%)
+                </strong>
               </li>
               <li className="flex justify-between text-slate-600">
                 <span className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Não entregues
                 </span>
-                <strong>3 (6,7%)</strong>
+                <strong>
+                  {failed} ({((failed / sentCount) * 100).toFixed(1).replace('.', ',')}%)
+                </strong>
               </li>
             </ul>
           </div>
@@ -137,18 +218,38 @@ export function ResultsPage() {
               <h3 className="text-lg font-semibold text-slate-800">Respostas dos clientes</h3>
               <p className="text-sm text-slate-400">Veja quem respondeu e o resultado de cada conversa.</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setRegisterOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
+              >
+                <MessageSquarePlus size={14} />
+                Registrar
+              </button>
               <label className="relative">
                 <Search size={14} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
                 <input
+                  value={replyQuery}
+                  onChange={(e) => setReplyQuery(e.target.value)}
                   placeholder="Buscar por nome ou produto..."
-                  className="rounded-xl border border-slate-200 py-2 pr-3 pl-9 text-sm"
+                  className="rounded-xl border border-slate-200 py-2 pr-3 pl-9 text-sm outline-none focus:border-brand"
                 />
               </label>
-              <button className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 text-sm text-slate-500">
-                Todos os status
-                <ChevronDown size={14} />
-              </button>
+              <div className="relative">
+                <select
+                  value={outcomeFilter}
+                  onChange={(e) => setOutcomeFilter(e.target.value as typeof outcomeFilter)}
+                  className="appearance-none rounded-xl border border-slate-200 py-2 pr-8 pl-3 text-sm text-slate-500 outline-none focus:border-brand"
+                >
+                  {OUTCOME_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-slate-400" />
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto scrollbar-thin">
@@ -164,7 +265,7 @@ export function ResultsPage() {
                 </tr>
               </thead>
               <tbody>
-                {campaignReplies.map((row) => {
+                {filteredReplies.map((row) => {
                   const client = getClient(row.clientId)
                   if (!client) return null
                   return (
@@ -172,7 +273,17 @@ export function ResultsPage() {
                       <td className="px-5 py-3">
                         <ClientCell client={client} />
                       </td>
-                      <td className="px-3 py-3 text-slate-600">“{row.reply}”</td>
+                      <td className="px-3 py-3 text-slate-600">
+                        <span>“{row.reply}”</span>
+                        {row.source && row.source !== 'manual' ? (
+                          <span className="mt-1 block text-[11px] font-medium text-slate-400">
+                            {row.source === 'mock'
+                              ? 'Mock / teste'
+                              : 'Meta WhatsApp'}
+                            {row.intent ? ` · ${row.intent}` : ''}
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="px-3 py-3">
                         <OutcomeBadge outcome={row.outcome} />
                       </td>
@@ -182,6 +293,7 @@ export function ResultsPage() {
                       <td className="px-3 py-3 text-slate-500">{row.datetime}</td>
                       <td className="px-5 py-3">
                         <button
+                          type="button"
                           onClick={() => setConversation(client.id)}
                           className="text-sm font-medium text-slate-500 hover:text-brand"
                         >
@@ -191,17 +303,27 @@ export function ResultsPage() {
                     </tr>
                   )
                 })}
+                {filteredReplies.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-400">
+                      Nenhuma resposta encontrada. Use “Registrar resposta” após falar no WhatsApp.
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
-          <p className="px-5 py-3 text-sm text-slate-400">Mostrando 1 a 5 de 18 respostas</p>
+          <p className="px-5 py-3 text-sm text-slate-400">
+            Mostrando {filteredReplies.length} de {replies.length} respostas
+          </p>
         </article>
 
         <div className="space-y-4">
           <article className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
             <h3 className="text-lg font-semibold text-slate-800">🏆 Ótimo resultado!</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Você recuperou <strong>11 pedidos</strong> e gerou <strong>R$ 687</strong> em faturamento com esta campanha.
+              Você recuperou <strong>{stats.orders} pedidos</strong> e gerou{' '}
+              <strong>{formatCurrency(stats.revenue)}</strong> em faturamento com esta campanha.
             </p>
             <div className="mt-4 rounded-xl bg-white p-3 text-sm text-slate-700 shadow-sm">
               “Everton, já faz 21 dias que você não pede sua Calabresa com Catupiry. Quer repetir hoje? 🍕”
@@ -218,13 +340,14 @@ export function ResultsPage() {
               <Row label="Mensagem" value="Personalizada pela IA" />
               <Row label="Enviada em" value="13/09/2026 às 10:00" />
               <Row label="Finalizada em" value="13/09/2026 às 20:15" />
-              <Row label="Enviada por" value={`${BUSINESS.company} (Você)`} />
+              <Row label="Enviada por" value={`${settings.companyName} (Você)`} />
             </dl>
           </article>
         </div>
       </section>
 
       <ConversationModal clientId={conversation} onClose={() => setConversation(null)} />
+      <RegisterReplyModal open={registerOpen} onClose={() => setRegisterOpen(false)} />
     </div>
   )
 }

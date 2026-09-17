@@ -1,10 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Menu } from 'lucide-react'
 import { Sidebar } from './Sidebar'
+import { useSettings } from '../../context/SettingsContext'
+import { useWhatsAppInboundSync } from '../../hooks/useWhatsAppInboundSync'
 
 export function AppLayout() {
   const [open, setOpen] = useState(false)
+  const { settings } = useSettings()
+  useWhatsAppInboundSync(true)
+
+  useEffect(() => {
+    document.title = `VoltaZap · ${settings.companyName}`
+  }, [settings.companyName])
 
   return (
     <div className="flex min-h-screen bg-canvas">
@@ -18,7 +26,11 @@ export function AppLayout() {
           >
             <Menu size={20} />
           </button>
-          <span className="font-semibold text-slate-800">🍕 VoltaZap</span>
+          <img
+            src="/voltazap-icon.png"
+            alt="VoltaZap"
+            className="h-8 w-8 rounded-[9px] object-cover shadow-sm"
+          />
         </div>
         <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">
           <Outlet />

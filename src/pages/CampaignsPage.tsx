@@ -29,6 +29,7 @@ import {
   getSegmentEmoji,
   type MessageMode,
 } from '../data/messageTemplates'
+import { suggestCampaignMessage, type AiSuggestProvider } from '../services/aiSuggest'
 
 const audienceIcons: Record<AudienceKey, string> = {
   proxima_compra: '⏰',
@@ -48,8 +49,10 @@ export function CampaignsPage() {
   const [audience, setAudience] = useState<AudienceKey>(preselectedId ? 'personalizado' : 'proxima_compra')
   const [selectedIds, setSelectedIds] = useState<string[]>(preselectedId ? [preselectedId] : [])
   const [messageMode, setMessageMode] = useState<MessageMode>('ai')
-  const [aiIndex, setAiIndex] = useState(0)
   const [message, setMessage] = useState(() => getAiSuggestions(settings.segment)[0])
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiProvider, setAiProvider] = useState<AiSuggestProvider | null>(null)
+  const [aiHint, setAiHint] = useState('')
   const [sendNow, setSendNow] = useState(true)
   const [showVars, setShowVars] = useState(false)
   const [realData, setRealData] = useState(true)
@@ -59,8 +62,8 @@ export function CampaignsPage() {
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const editorRef = useRef<HTMLTextAreaElement>(null)
+  const aiRequestId = useRef(0)
 
-  const aiSuggestions = useMemo(() => getAiSuggestions(settings.segment), [settings.segment])
   const templates = useMemo(() => getMessageTemplates(settings.segment), [settings.segment])
   const segmentEmoji = getSegmentEmoji(settings.segment)
 
@@ -70,13 +73,6 @@ export function CampaignsPage() {
       setSelectedIds([preselectedId])
     }
   }, [preselectedId])
-
-  useEffect(() => {
-    if (messageMode === 'ai') {
-      setMessage(aiSuggestions[aiIndex % aiSuggestions.length])
-      setSelectedTemplateId(null)
-    }
-  }, [settings.segment, aiSuggestions, aiIndex, messageMode])
 
   const audienceCount = useMemo(() => {
     if (audience === 'personalizado') return selectedIds.length || 0
@@ -103,18 +99,45 @@ export function CampaignsPage() {
     setMessageMode(mode)
     setSelectedTemplateId(templateId)
     setShowVars(false)
+    setAiHint('')
+  }
+
+  async function fetchAiSuggestion(options?: { regenerate?: boolean }) {
+    const requestId = ++aiRequestId.current
+    setAiLoading(true)
+    setAiHint('')
+    setMessageMode('ai')
+    setSelectedTemplateId(null)
+
+    try {
+      const result = await suggestCampaignMessage({
+        segment: settings.segment,
+        companyName: settings.companyName,
+        audience,
+        previousMessage: options?.regenerate ? message : undefined,
+      })
+      if (requestId !== aiRequestId.current) return
+      setMessage(result.suggestion.slice(0, MAX_MESSAGE_LENGTH))
+      setAiProvider(result.provider)
+      setAiHint(
+        result.provider === 'openai'
+          ? 'Gerada com IA'
+          : 'Sugestão local (conecte a chave da IA na Vercel para gerar online)',
+      )
+    } finally {
+      if (requestId === aiRequestId.current) setAiLoading(false)
+    }
   }
 
   function handleAiSuggestion() {
-    setMessageMode('ai')
-    setSelectedTemplateId(null)
-    setMessage(aiSuggestions[aiIndex % aiSuggestions.length])
+    void fetchAiSuggestion()
   }
 
   function handleCustomize() {
     setMessageMode('custom')
     setSelectedTemplateId(null)
     setShowVars(false)
+    setAiHint('')
     window.setTimeout(() => editorRef.current?.focus(), 0)
   }
 
@@ -126,11 +149,7 @@ export function CampaignsPage() {
         return
       }
     }
-    const nextIndex = (aiIndex + 1) % aiSuggestions.length
-    setAiIndex(nextIndex)
-    setMessageMode('ai')
-    setSelectedTemplateId(null)
-    setMessage(aiSuggestions[nextIndex])
+    void fetchAiSuggestion({ regenerate: true })
   }
 
   function insertVariable(variable: string) {
@@ -261,19 +280,22 @@ export function CampaignsPage() {
 
           <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-800">2. Crie a mensagem</h3>
-            <p className="mb-4 text-sm text-slate-400">Use a sugestão da IA ou personalize do seu jeito.</p>
+            <p className="mb-4 text-sm text-slate-400">
+              Use a sugestão da IA ou personalize do seu jeito.
+            </p>
             <div className="mb-4 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handleAiSuggestion}
-                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${
+                disabled={aiLoading}
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold disabled:opacity-60 ${
                   messageMode === 'ai'
                     ? 'bg-brand text-white'
                     : 'border border-slate-200 font-medium text-slate-600 hover:border-brand hover:text-brand'
                 }`}
               >
-                <Sparkles size={14} />
-                Sugestão da IA
+                <Sparkles size={14} className={aiLoading ? 'animate-pulse' : undefined} />
+                {aiLoading ? 'Gerando com IA…' : 'Sugestão da IA'}
               </button>
               <button
                 type="button"
@@ -328,23 +350,31 @@ export function CampaignsPage() {
               ref={editorRef}
               value={message}
               maxLength={MAX_MESSAGE_LENGTH}
+              disabled={aiLoading}
               onChange={(e) => {
                 setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))
                 setMessageMode('custom')
                 setSelectedTemplateId(null)
+                setAiHint('')
               }}
-              className="min-h-[220px] w-full resize-y rounded-2xl border border-slate-200 p-4 text-sm leading-relaxed text-slate-700 outline-none focus:border-brand"
+              className="min-h-[220px] w-full resize-y rounded-2xl border border-slate-200 p-4 text-sm leading-relaxed text-slate-700 outline-none focus:border-brand disabled:bg-slate-50"
             />
-            <div className="mt-3 flex items-center justify-between text-sm text-slate-400">
+            <div className="mt-3 flex items-center justify-between gap-3 text-sm text-slate-400">
               <button
                 type="button"
                 onClick={handleRegenerate}
-                className="inline-flex items-center gap-2 hover:text-brand"
+                disabled={aiLoading}
+                className="inline-flex items-center gap-2 hover:text-brand disabled:opacity-50"
               >
-                <RefreshCw size={14} />
-                Regenerar mensagem
+                <RefreshCw size={14} className={aiLoading ? 'animate-spin' : undefined} />
+                {aiLoading ? 'Gerando…' : 'Regenerar mensagem'}
               </button>
-              <span>
+              <span className="text-right">
+                {aiHint && messageMode === 'ai' ? (
+                  <span className={`mr-3 ${aiProvider === 'openai' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {aiHint}
+                  </span>
+                ) : null}
                 {message.length}/{MAX_MESSAGE_LENGTH.toLocaleString('pt-BR')}
               </span>
             </div>
@@ -546,8 +576,11 @@ export function CampaignsPage() {
                 navigate('/resultados')
               }}
             >
-              Concluir
+              Concluir e ver resultados
             </button>
+            <p className="mt-2 text-center text-xs text-slate-400">
+              Depois que o cliente responder no WhatsApp, use “Registrar resposta” em Resultados.
+            </p>
           </div>
         </div>
       ) : null}

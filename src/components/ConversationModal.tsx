@@ -1,7 +1,8 @@
 import { X } from 'lucide-react'
-import { BUSINESS, PIZZA_PROMO_IMAGE } from '../data/mock'
+import { PIZZA_PROMO_IMAGE } from '../data/mock'
 import { Avatar } from './ui/Avatar'
 import { useClients } from '../context/ClientsContext'
+import { useSettings } from '../context/SettingsContext'
 
 interface ConversationModalProps {
   clientId: string | null
@@ -10,6 +11,7 @@ interface ConversationModalProps {
 
 export function ConversationModal({ clientId, onClose }: ConversationModalProps) {
   const { getClient } = useClients()
+  const { settings } = useSettings()
   if (!clientId) return null
   const client = getClient(clientId)
   if (!client) return null
@@ -85,7 +87,7 @@ export function ConversationModal({ clientId, onClose }: ConversationModalProps)
           ))}
         </div>
         <p className="border-t border-slate-100 px-4 py-3 text-center text-xs text-slate-400">
-          Prévia demonstrativa · {BUSINESS.company}
+          Prévia demonstrativa · {settings.companyName}
         </p>
       </div>
     </div>

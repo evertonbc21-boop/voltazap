@@ -13,9 +13,11 @@ import {
   X,
 } from 'lucide-react'
 import { BUSINESS } from '../../data/mock'
+import { getSegmentEmoji } from '../../data/messageTemplates'
 import { useClients } from '../../context/ClientsContext'
 import { usePlan } from '../../context/PlanContext'
 import { useSettings } from '../../context/SettingsContext'
+import { VoltaZapWordmark } from '../VoltaZapWordmark'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: Home, end: true },
@@ -37,8 +39,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { clients } = useClients()
   const { plan } = usePlan()
   const { settings } = useSettings()
-  const used = Math.min(plan.clientsLimit, Math.max(clients.length, plan.usedClients))
+  const used = Math.min(plan.clientsLimit, clients.length)
   const usage = Math.round((used / plan.clientsLimit) * 100)
+  const segmentEmoji = getSegmentEmoji(settings.segment)
 
   return (
     <>
@@ -51,15 +54,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-start justify-between px-5 pt-6 pb-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-xl">🍕</div>
-            <div>
-              <h1 className="text-lg font-bold leading-none text-white">VoltaZap</h1>
-              <p className="mt-1 max-w-[160px] text-[11px] leading-snug text-slate-400">
-                {BUSINESS.slogan}
-              </p>
-            </div>
+        <div className="flex items-start justify-between gap-2 px-5 pt-6 pb-4">
+          <div className="min-w-0">
+            <VoltaZapWordmark
+              variant="onDark"
+              markClassName="h-9 w-9"
+              textClassName="text-[1.4rem]"
+            />
+            <p className="mt-2 max-w-[200px] text-[12px] leading-snug text-slate-300">
+              {BUSINESS.slogan}
+            </p>
           </div>
           <button className="rounded-lg p-1 text-slate-400 lg:hidden" onClick={onClose} aria-label="Fechar menu">
             <X size={18} />
@@ -91,10 +95,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <div className="px-4 pb-5">
           <div className="rounded-2xl bg-white/5 p-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-lg">🍕</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-lg">
+                {segmentEmoji}
+              </div>
               <div>
                 <p className="text-sm font-semibold text-white">{settings.companyName || BUSINESS.company}</p>
-                <p className="text-xs text-slate-400">Plano {plan.name}</p>
+                <p className="text-xs text-slate-400">
+                  {settings.segment} · Plano {plan.name}
+                </p>
               </div>
             </div>
             <div className="mt-3">
@@ -116,14 +124,37 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             Ver planos
           </NavLink>
 
-          <button className="mt-3 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white">
+          <button
+            type="button"
+            onClick={() => {
+              window.open(
+                'https://wa.me/5511999999999?text=' +
+                  encodeURIComponent('Olá! Preciso de ajuda com o VoltaZap.'),
+                '_blank',
+                'noopener,noreferrer',
+              )
+            }}
+            className="mt-3 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
+          >
             <HelpCircle size={18} />
             <span className="text-left">
               Precisa de ajuda?
               <span className="block text-[11px] text-slate-500">Fale com nosso suporte</span>
             </span>
           </button>
-          <button className="mt-1 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white">
+          <button
+            type="button"
+            onClick={() => {
+              const ok = window.confirm('Sair da conta demo e limpar dados locais?')
+              if (!ok) return
+              localStorage.removeItem('voltazap-settings')
+              localStorage.removeItem('voltazap-plan')
+              localStorage.removeItem('voltazap-clients')
+              localStorage.removeItem('voltazap-replies')
+              window.location.href = '/login'
+            }}
+            className="mt-1 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
+          >
             <LogOut size={18} />
             Sair
           </button>
