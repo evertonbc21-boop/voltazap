@@ -103,7 +103,7 @@ assert.equal(badString.ok, false)
 }
 
 // 6) Handler: payload Meta válido processa + idempotência
-clearInboundStore()
+await clearInboundStore()
 {
   const res = mockRes()
   await handler(mockReq({ body: metaBody }), res)
@@ -122,7 +122,7 @@ clearInboundStore()
 }
 
 // 7) processInbound ainda classifica interesse sem inventar pedido
-clearInboundStore()
+await clearInboundStore()
 const processed = await processWhatsAppWebhook(metaBody, { source: 'meta_whatsapp' })
 assert.equal(processed.events[0].analysis.outcome, 'interessado')
 assert.equal(processed.events[0].analysis.intentLabel, 'Interessado')

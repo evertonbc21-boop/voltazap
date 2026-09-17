@@ -17,6 +17,7 @@ const messageMap: Record<MessageStatus, { label: string; className: string; dot:
   lida: { label: 'Lida', className: 'text-violet-600 bg-violet-50', dot: 'bg-violet-500' },
   enviada: { label: 'Enviada', className: 'text-slate-600 bg-slate-100', dot: 'bg-slate-400' },
   nao_entregue: { label: 'Não entregue', className: 'text-red-600 bg-red-50', dot: 'bg-red-500' },
+  received: { label: 'Recebida', className: 'text-brand bg-rose-50', dot: 'bg-brand' },
 }
 
 export function MessageStatusBadge({ status }: { status: MessageStatus }) {

@@ -12,14 +12,17 @@ export default async function handler(req, res) {
     return sendJson(res, 405, { error: 'method_not_allowed' })
   }
 
-  const pendingOnly = String(req.query.pending ?? '1') !== '0'
-  const events = listInboundEvents({ pendingOnly })
+  try {
+    const pendingOnly = String(req.query.pending ?? '1') !== '0'
+    const events = await listInboundEvents({ pendingOnly })
 
-  return sendJson(res, 200, {
-    ok: true,
-    count: events.length,
-    events,
-    note:
-      'Store em memória (warm instance). Em produção, troque por Redis/Postgres. O front casa o telefone com clientes do localStorage.',
-  })
+    return sendJson(res, 200, {
+      ok: true,
+      count: events.length,
+      events,
+    })
+  } catch (error) {
+    console.error('inbound-messages list error', error)
+    return sendJson(res, 500, { error: 'server_error' })
+  }
 }

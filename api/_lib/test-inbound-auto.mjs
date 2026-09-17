@@ -8,7 +8,7 @@ import { clearInboundStore, listInboundEvents } from './inboundStore.js'
 import { parseWhatsAppWebhookBody } from './parseWhatsAppWebhook.js'
 import { processWhatsAppWebhook } from './processInbound.js'
 
-clearInboundStore()
+await clearInboundStore()
 
 const interest = analyzeInboundText('Quero fazer um pedido')
 assert.equal(interest.outcome, 'interessado')
@@ -72,7 +72,7 @@ assert.equal(first.events[0].analysis.pedidoRealizado, false)
 const duplicate = await processWhatsAppWebhook(payload, { source: 'meta_whatsapp' })
 assert.equal(duplicate.stored, 0, 'idempotência: mesmo wamid não grava de novo')
 
-const pending = listInboundEvents({ pendingOnly: true })
+const pending = await listInboundEvents({ pendingOnly: true })
 assert.equal(pending.length, 1)
 assert.equal(pending[0].waMessageId, 'wamid.test.quero.pedido.001')
 

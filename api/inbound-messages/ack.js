@@ -5,7 +5,7 @@
  */
 
 import { ackInboundEvents } from '../_lib/inboundStore.js'
-import { getRawBody, parseJsonBody, sendJson } from '../_lib/http.js'
+import { readJsonBodySafe, sendJson } from '../_lib/http.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,14 +14,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const raw = await getRawBody(req)
-    const body = parseJsonBody(req, raw)
-    const ids = Array.isArray(body.ids) ? body.ids.map(String) : []
+    const parsed = await readJsonBodySafe(req)
+    if (!parsed.ok) {
+      return sendJson(res, 400, { error: 'invalid_body', reason: parsed.reason })
+    }
+    const ids = Array.isArray(parsed.body.ids) ? parsed.body.ids.map(String) : []
     if (!ids.length) {
       return sendJson(res, 400, { error: 'ids_required' })
     }
 
-    const result = ackInboundEvents(ids)
+    const result = await ackInboundEvents(ids)
     return sendJson(res, 200, { ok: true, ...result })
   } catch (error) {
     console.error('inbound ack error', error)

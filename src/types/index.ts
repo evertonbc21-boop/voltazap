@@ -10,6 +10,7 @@ export type MessageStatus =
   | 'lida'
   | 'nao_entregue'
   | 'enviada'
+  | 'received'
 
 export type ReplyOutcome =
   | 'pedido_realizado'
