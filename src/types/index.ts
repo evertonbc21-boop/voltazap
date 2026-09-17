@@ -74,6 +74,10 @@ export interface SentMessage {
   status: MessageStatus
   dateLabel: string
   reply?: string
+  waMessageId?: string
+  fromPhone?: string
+  source?: ReplySource
+  direction?: 'inbound' | 'outbound'
 }
 
 export interface CampaignReply {
@@ -88,6 +92,13 @@ export interface CampaignReply {
   fromPhone?: string
   waMessageId?: string
   conversationStatus?: string
+  customerName?: string
+  customerPhone?: string
+  phone?: string
+  text?: string
+  type?: string
+  direction?: 'inbound' | 'outbound'
+  status?: MessageStatus | string
 }
 
 export interface ConversationMessage {

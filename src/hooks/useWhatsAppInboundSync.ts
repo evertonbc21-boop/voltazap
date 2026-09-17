@@ -5,8 +5,7 @@ import { findClientByPhone } from '../lib/phoneMatch'
 import { ackInboundMessages, fetchInboundMessages } from '../services/whatsappInbound'
 import type { MessageStatus, ReplyOutcome, ReplySource } from '../types'
 
-/** Poll rápido: o automático é o fluxo principal. */
-const POLL_MS = 2500
+const POLL_MS = 2000
 
 const STATUS_MAP: Record<string, MessageStatus> = {
   sent: 'enviada',
@@ -22,16 +21,17 @@ function mapSource(source: ReplySource | string | undefined): ReplySource {
 }
 
 /**
- * Sincroniza eventos do webhook (servidor) com o histórico local (localStorage).
- * Casa telefone/wa_id com clientes; se não achar, cria contato WhatsApp e mesmo assim registra.
+ * Ponte: GET /api/inbound-messages → localStorage (voltazap-replies / voltazap-clients).
+ * Só faz ACK no servidor depois de gravar localmente (ou se já existir pelo wamid).
  */
 export function useWhatsAppInboundSync(enabled = true) {
   const { clients, ensureClientFromWhatsApp } = useClients()
-  const { ingestInboundReply, applyDeliveryStatus } = useMessages()
+  const { ingestInboundReply, applyDeliveryStatus, hasWaMessage } = useMessages()
   const clientsRef = useRef(clients)
   const ensureRef = useRef(ensureClientFromWhatsApp)
   const ingestRef = useRef(ingestInboundReply)
   const statusRef = useRef(applyDeliveryStatus)
+  const hasWaRef = useRef(hasWaMessage)
 
   useEffect(() => {
     clientsRef.current = clients
@@ -41,7 +41,8 @@ export function useWhatsAppInboundSync(enabled = true) {
     ensureRef.current = ensureClientFromWhatsApp
     ingestRef.current = ingestInboundReply
     statusRef.current = applyDeliveryStatus
-  }, [ensureClientFromWhatsApp, ingestInboundReply, applyDeliveryStatus])
+    hasWaRef.current = hasWaMessage
+  }, [ensureClientFromWhatsApp, ingestInboundReply, applyDeliveryStatus, hasWaMessage])
 
   useEffect(() => {
     if (!enabled) return
@@ -50,8 +51,25 @@ export function useWhatsAppInboundSync(enabled = true) {
 
     async function syncOnce() {
       try {
-        const events = await fetchInboundMessages(true)
-        if (cancelled || !events.length) return
+        const [pending, all] = await Promise.all([
+          fetchInboundMessages(true),
+          fetchInboundMessages(false),
+        ])
+        if (cancelled) return
+
+        // Recupera mensagens já "acked" no servidor mas ausentes no localStorage
+        const byId = new Map<string, (typeof pending)[number]>()
+        for (const event of [...pending, ...all]) {
+          if (event.kind !== 'message') {
+            if (event.kind === 'status' && !event.processed) byId.set(event.id, event)
+            continue
+          }
+          const key = event.waMessageId || event.id
+          if (!byId.has(key)) byId.set(key, event)
+        }
+
+        const events = [...byId.values()]
+        if (!events.length) return
 
         const acked: string[] = []
 
@@ -61,22 +79,27 @@ export function useWhatsAppInboundSync(enabled = true) {
               const mapped = STATUS_MAP[event.status]
               if (mapped) statusRef.current(event.waMessageId, mapped, event.fromPhone)
             }
-            acked.push(event.id)
+            if (!event.processed) acked.push(event.id)
             continue
           }
 
           const phone = event.fromPhone || ''
+          const wamid = event.waMessageId || event.id
+
+          // Já está no storage local do VoltaZap → só confirma ACK
+          if (wamid && hasWaRef.current(wamid)) {
+            if (!event.processed) acked.push(event.id)
+            continue
+          }
+
           let client = findClientByPhone(clientsRef.current, phone)
           if (!client) {
             console.log('whatsapp webhook client not found', {
               phone,
               name: event.contactName || null,
-              wamid: event.waMessageId || null,
+              wamid: wamid || null,
             })
-            if (!phone) {
-              // Sem telefone não dá para associar — mantém pendente
-              continue
-            }
+            if (!phone) continue
             const ensured = ensureRef.current({
               phone,
               name: event.contactName,
@@ -88,7 +111,7 @@ export function useWhatsAppInboundSync(enabled = true) {
               phone,
               clientId: client.id,
               name: client.nome,
-              wamid: event.waMessageId || null,
+              wamid: wamid || null,
             })
           }
 
@@ -98,29 +121,34 @@ export function useWhatsAppInboundSync(enabled = true) {
               ? event.analysis?.orderValue ?? event.analysis?.valorPedido ?? undefined
               : undefined
 
-          const accepted = ingestRef.current({
+          const result = ingestRef.current({
             clientId: client.id,
             clientName: client.nome || event.contactName || 'Cliente',
+            contactName: event.contactName || client.nome,
             reply: event.text || '',
             outcome,
             orderValue: typeof orderValue === 'number' ? orderValue : undefined,
             source: mapSource(event.source),
             intent: event.analysis?.intentLabel || event.analysis?.intent || 'Interessado',
             fromPhone: event.fromPhone,
-            waMessageId: event.waMessageId,
-            conversationStatus: event.analysis?.conversationStatus || event.analysis?.statusConversa || 'replied',
+            waMessageId: wamid,
+            conversationStatus:
+              event.analysis?.conversationStatus || event.analysis?.statusConversa || 'replied',
             receivedAtIso: event.receivedAt,
             messagePreview: `WhatsApp · ${client.nome}`,
+            messageType: event.type || 'text',
           })
 
-          if (accepted || event.waMessageId) {
+          if (result.ok) {
             acked.push(event.id)
+          } else {
+            console.error('whatsapp webhook local ingest failed', result)
           }
         }
 
         if (acked.length) await ackInboundMessages(acked)
-      } catch {
-        // API indisponível no Vite local sem `vercel dev` — silencioso
+      } catch (error) {
+        console.error('whatsapp inbound sync error', error)
       }
     }
 
@@ -128,6 +156,9 @@ export function useWhatsAppInboundSync(enabled = true) {
     const timer = window.setInterval(() => void syncOnce(), POLL_MS)
     const onFocus = () => void syncOnce()
     window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void syncOnce()
+    })
     return () => {
       cancelled = true
       window.clearInterval(timer)

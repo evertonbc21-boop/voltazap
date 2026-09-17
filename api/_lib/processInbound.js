@@ -31,17 +31,21 @@ export async function processWhatsAppWebhook(body, options = {}) {
     })
 
     const event = {
-      id: `in-${randomUUID()}`,
+      id: msg.waMessageId || `in-${randomUUID()}`,
       kind: /** @type {'message'} */ ('message'),
       waMessageId: msg.waMessageId || `local-${randomUUID()}`,
       fromPhone,
+      phone: fromPhone,
+      customerPhone: fromPhone,
       contactName: msg.contactName,
+      customerName: msg.contactName,
       text: msg.text,
       receivedAt: new Date((msg.timestamp || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
       timestamp: msg.timestamp,
       type: msg.type,
       phoneNumberId: msg.phoneNumberId,
       status: 'received',
+      direction: 'inbound',
       analysis: {
         intent: analysis.intent,
         intentLabel: analysis.intentLabel,
@@ -63,10 +67,12 @@ export async function processWhatsAppWebhook(body, options = {}) {
     if (result.stored && result.event) {
       stored.push(result.event)
       console.log('whatsapp webhook message stored', {
-        id: result.event.id,
+        stored: true,
         wamid: result.event.waMessageId,
         phone: result.event.fromPhone,
+        text: result.event.text,
         status: result.event.status,
+        source: result.event.source,
       })
       void forwardToTypebot({
         eventType: 'inbound_message',
@@ -80,8 +86,10 @@ export async function processWhatsAppWebhook(body, options = {}) {
       })
     } else {
       console.log('whatsapp webhook message stored', {
-        wamid: event.waMessageId,
         stored: false,
+        wamid: event.waMessageId,
+        phone: event.fromPhone,
+        text: event.text,
         reason: result.reason || 'unknown',
       })
     }

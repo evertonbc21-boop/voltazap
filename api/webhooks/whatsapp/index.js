@@ -145,16 +145,21 @@ async function handleEvent(req, res) {
         phone: event.fromPhone || null,
         text: event.text || null,
         timestamp: event.timestamp || event.receivedAt || null,
+        type: event.type || null,
+      })
+      console.log({
         stored: true,
+        wamid: event.waMessageId,
+        phone: event.fromPhone,
+        text: event.text,
       })
     }
 
-    // Também loga mensagens parseadas que foram duplicadas (não regravadas)
     if (result.messages > 0 && result.stored === 0) {
-      console.log('whatsapp webhook message received', {
-        note: 'duplicate_or_unstored',
+      console.log({
+        stored: false,
+        reason: 'duplicate',
         messages: result.messages,
-        stored: result.stored,
       })
     }
 

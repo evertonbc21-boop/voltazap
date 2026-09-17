@@ -27,17 +27,25 @@ interface RegisterReplyInput {
   fromPhone?: string
   waMessageId?: string
   conversationStatus?: string
+  messageType?: string
 }
 
 interface IngestInboundInput extends RegisterReplyInput {
   receivedAtIso?: string
+  contactName?: string
 }
+
+export type IngestResult =
+  | { ok: true; entry: CampaignReply; duplicate: false }
+  | { ok: true; entry: CampaignReply; duplicate: true }
+  | { ok: false; reason: string }
 
 interface MessagesContextValue {
   replies: CampaignReply[]
   messages: SentMessage[]
   registerReply: (input: RegisterReplyInput) => CampaignReply
-  ingestInboundReply: (input: IngestInboundInput) => CampaignReply | null
+  ingestInboundReply: (input: IngestInboundInput) => IngestResult
+  hasWaMessage: (waMessageId: string | undefined | null) => boolean
   applyDeliveryStatus: (waMessageId: string, status: MessageStatus, phone?: string) => void
   stats: {
     totalReplies: number
@@ -64,6 +72,15 @@ function loadState(): StoredState {
   }
 }
 
+/** Persistência síncrona — evita perder mensagem se o ACK no servidor rodar antes do useEffect. */
+function persistState(next: StoredState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch (error) {
+    console.error('voltazap-replies persist failed', error)
+  }
+}
+
 function formatNowLabel(date = new Date()) {
   const dd = String(date.getDate()).padStart(2, '0')
   const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -82,7 +99,7 @@ function formatTodayTime(date = new Date()) {
 function buildReplyEntry(input: IngestInboundInput, date: Date): CampaignReply {
   const replyText = input.reply.trim() || 'Sem resposta'
   return {
-    id: `r-${crypto.randomUUID()}`,
+    id: input.waMessageId || `r-${crypto.randomUUID()}`,
     clientId: input.clientId,
     reply: replyText,
     outcome: input.outcome,
@@ -93,6 +110,13 @@ function buildReplyEntry(input: IngestInboundInput, date: Date): CampaignReply {
     fromPhone: input.fromPhone,
     waMessageId: input.waMessageId,
     conversationStatus: input.conversationStatus,
+    customerName: input.contactName || input.clientName,
+    customerPhone: input.fromPhone,
+    phone: input.fromPhone,
+    text: replyText,
+    type: input.messageType || 'text',
+    direction: input.source && input.source !== 'manual' ? 'inbound' : undefined,
+    status: input.outcome === 'sem_resposta' ? 'received' : 'respondeu',
   }
 }
 
@@ -101,16 +125,20 @@ function buildMessageEntry(input: IngestInboundInput, date: Date): SentMessage {
   const preview =
     input.messagePreview?.trim() ||
     (input.source && input.source !== 'manual'
-      ? `Resposta WhatsApp · ${input.clientName}`
+      ? `WhatsApp · ${input.clientName}: ${replyText}`
       : `Mensagem enviada para ${input.clientName}`)
 
   return {
-    id: `m-${crypto.randomUUID()}`,
+    id: input.waMessageId ? `m-${input.waMessageId}` : `m-${crypto.randomUUID()}`,
     clientId: input.clientId,
-    preview: preview.length > 48 ? `${preview.slice(0, 45)}...` : preview,
-    status: input.outcome === 'sem_resposta' ? 'entregue' : 'respondeu',
+    preview: preview.length > 64 ? `${preview.slice(0, 61)}...` : preview,
+    status: input.outcome === 'sem_resposta' ? 'received' : 'respondeu',
     dateLabel: formatTodayTime(date),
     reply: input.outcome === 'sem_resposta' ? undefined : replyText || undefined,
+    waMessageId: input.waMessageId,
+    fromPhone: input.fromPhone,
+    source: input.source,
+    direction: input.source && input.source !== 'manual' ? 'inbound' : undefined,
   }
 }
 
@@ -118,64 +146,89 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoredState>(loadState)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    persistState(state)
   }, [state])
 
   const value = useMemo<MessagesContextValue>(() => {
+    const hasWaMessage = (waMessageId: string | undefined | null) => {
+      if (!waMessageId) return false
+      return (
+        state.replies.some((r) => r.waMessageId === waMessageId || r.id === waMessageId) ||
+        state.messages.some((m) => m.waMessageId === waMessageId || m.id === `m-${waMessageId}`)
+      )
+    }
+
     const registerReply = (input: RegisterReplyInput) => {
       const date = new Date()
       const entry = buildReplyEntry({ ...input, source: input.source || 'manual' }, date)
       const message = buildMessageEntry({ ...input, source: input.source || 'manual' }, date)
-
-      setState((current) => ({
-        replies: [entry, ...current.replies],
-        messages: [message, ...current.messages],
-      }))
-
+      const next = {
+        replies: [entry, ...state.replies],
+        messages: [message, ...state.messages],
+      }
+      persistState(next)
+      setState(next)
       return entry
     }
 
-    const ingestInboundReply = (input: IngestInboundInput) => {
+    const ingestInboundReply = (input: IngestInboundInput): IngestResult => {
+      if (input.waMessageId && hasWaMessage(input.waMessageId)) {
+        const existing = state.replies.find((r) => r.waMessageId === input.waMessageId || r.id === input.waMessageId)
+        return {
+          ok: true,
+          duplicate: true,
+          entry: existing || buildReplyEntry(input, new Date()),
+        }
+      }
+
       const date = input.receivedAtIso ? new Date(input.receivedAtIso) : new Date()
+      if (Number.isNaN(date.getTime())) {
+        return { ok: false, reason: 'invalid_timestamp' }
+      }
+
       const entry = buildReplyEntry(input, date)
       const message = buildMessageEntry(input, date)
-      let accepted: CampaignReply | null = entry
 
-      setState((current) => {
-        if (input.waMessageId && current.replies.some((r) => r.waMessageId === input.waMessageId)) {
-          accepted = null
-          return current
+      const messages = [...state.messages]
+      const openIdx = messages.findIndex(
+        (m) => m.clientId === input.clientId && !m.reply && m.status !== 'respondeu',
+      )
+      if (openIdx >= 0) {
+        messages[openIdx] = {
+          ...messages[openIdx],
+          status: 'respondeu',
+          reply: entry.reply,
+          dateLabel: formatTodayTime(date),
+          waMessageId: input.waMessageId,
+          fromPhone: input.fromPhone,
+          source: input.source,
+          direction: 'inbound',
         }
+      } else {
+        messages.unshift(message)
+      }
 
-        const messages = [...current.messages]
-        const openIdx = messages.findIndex(
-          (m) => m.clientId === input.clientId && !m.reply && m.status !== 'respondeu',
-        )
-        if (openIdx >= 0) {
-          messages[openIdx] = {
-            ...messages[openIdx],
-            status: 'respondeu',
-            reply: entry.reply,
-            dateLabel: formatTodayTime(date),
-          }
-          return {
-            replies: [entry, ...current.replies],
-            messages,
-          }
-        }
+      const next = {
+        replies: [entry, ...state.replies],
+        messages,
+      }
+      // Grava no localStorage ANTES do ACK no servidor
+      persistState(next)
+      setState(next)
 
-        return {
-          replies: [entry, ...current.replies],
-          messages: [message, ...messages],
-        }
+      console.log('whatsapp webhook message stored', {
+        stored: true,
+        wamid: entry.waMessageId,
+        phone: entry.fromPhone,
+        text: entry.reply,
+        clientId: entry.clientId,
       })
 
-      return accepted
+      return { ok: true, duplicate: false, entry }
     }
 
     const applyDeliveryStatus = (_waMessageId: string, _status: MessageStatus, _phone?: string) => {
-      // Estrutura pronta: quando o envio passar a gravar wamid (Cloud API outbound),
-      // atualizaremos messages pelo id. Envio atual via wa.me não retorna wamid.
+      // Pronto para quando o envio Cloud API gravar wamid outbound.
     }
 
     const orders = state.replies.filter((r) => r.outcome === 'pedido_realizado').length
@@ -188,6 +241,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       messages: state.messages,
       registerReply,
       ingestInboundReply,
+      hasWaMessage,
       applyDeliveryStatus,
       stats: {
         totalReplies: state.replies.length,
