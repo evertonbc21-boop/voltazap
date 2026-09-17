@@ -72,6 +72,19 @@ function loadState(): StoredState {
   }
 }
 
+/** Lê o que está no disco sem fallback para seed — usado no ingest/idempotência. */
+function readPersistedState(): StoredState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<StoredState>
+    if (!parsed || !Array.isArray(parsed.replies) || !Array.isArray(parsed.messages)) return null
+    return { replies: parsed.replies, messages: parsed.messages }
+  } catch {
+    return null
+  }
+}
+
 /** Persistência síncrona — evita perder mensagem se o ACK no servidor rodar antes do useEffect. */
 function persistState(next: StoredState) {
   try {
@@ -152,9 +165,15 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   const value = useMemo<MessagesContextValue>(() => {
     const hasWaMessage = (waMessageId: string | undefined | null) => {
       if (!waMessageId) return false
-      return (
+      const inState =
         state.replies.some((r) => r.waMessageId === waMessageId || r.id === waMessageId) ||
         state.messages.some((m) => m.waMessageId === waMessageId || m.id === `m-${waMessageId}`)
+      if (inState) return true
+      const latest = readPersistedState()
+      if (!latest) return false
+      return (
+        latest.replies.some((r) => r.waMessageId === waMessageId || r.id === waMessageId) ||
+        latest.messages.some((m) => m.waMessageId === waMessageId || m.id === `m-${waMessageId}`)
       )
     }
 
@@ -172,8 +191,19 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     }
 
     const ingestInboundReply = (input: IngestInboundInput): IngestResult => {
-      if (input.waMessageId && hasWaMessage(input.waMessageId)) {
-        const existing = state.replies.find((r) => r.waMessageId === input.waMessageId || r.id === input.waMessageId)
+      // Prefere disco (síncrono) e cai no estado React — evita race com seed fallback
+      const latest = readPersistedState() || state
+      const already =
+        Boolean(input.waMessageId) &&
+        (latest.replies.some((r) => r.waMessageId === input.waMessageId || r.id === input.waMessageId) ||
+          latest.messages.some(
+            (m) => m.waMessageId === input.waMessageId || m.id === `m-${input.waMessageId}`,
+          ))
+
+      if (already) {
+        const existing = latest.replies.find(
+          (r) => r.waMessageId === input.waMessageId || r.id === input.waMessageId,
+        )
         return {
           ok: true,
           duplicate: true,
@@ -189,7 +219,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       const entry = buildReplyEntry(input, date)
       const message = buildMessageEntry(input, date)
 
-      const messages = [...state.messages]
+      const messages = [...latest.messages]
       const openIdx = messages.findIndex(
         (m) => m.clientId === input.clientId && !m.reply && m.status !== 'respondeu',
       )
@@ -209,14 +239,14 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       }
 
       const next = {
-        replies: [entry, ...state.replies],
+        replies: [entry, ...latest.replies],
         messages,
       }
       // Grava no localStorage ANTES do ACK no servidor
       persistState(next)
       setState(next)
 
-      console.log('whatsapp webhook message stored', {
+      console.log('whatsapp inbound local message stored', {
         stored: true,
         wamid: entry.waMessageId,
         phone: entry.fromPhone,

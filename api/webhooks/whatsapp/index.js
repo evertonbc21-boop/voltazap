@@ -138,31 +138,6 @@ async function handleEvent(req, res) {
 
     const result = await processWhatsAppWebhook(body, { source: 'meta_whatsapp' })
 
-    for (const event of result.events || []) {
-      if (event.kind !== 'message') continue
-      console.log('whatsapp webhook message received', {
-        wamid: event.waMessageId || null,
-        phone: event.fromPhone || null,
-        text: event.text || null,
-        timestamp: event.timestamp || event.receivedAt || null,
-        type: event.type || null,
-      })
-      console.log({
-        stored: true,
-        wamid: event.waMessageId,
-        phone: event.fromPhone,
-        text: event.text,
-      })
-    }
-
-    if (result.messages > 0 && result.stored === 0) {
-      console.log({
-        stored: false,
-        reason: 'duplicate',
-        messages: result.messages,
-      })
-    }
-
     return sendJson(res, 200, {
       ok: true,
       received: {

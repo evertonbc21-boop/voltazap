@@ -94,12 +94,10 @@ export function useWhatsAppInboundSync(enabled = true) {
 
           let client = findClientByPhone(clientsRef.current, phone)
           if (!client) {
-            console.log('whatsapp webhook client not found', {
-              phone,
-              name: event.contactName || null,
-              wamid: wamid || null,
-            })
-            if (!phone) continue
+            if (!phone) {
+              console.error('whatsapp inbound skip: missing phone', { wamid: wamid || null })
+              continue
+            }
             const ensured = ensureRef.current({
               phone,
               name: event.contactName,

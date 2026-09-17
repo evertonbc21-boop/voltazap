@@ -6,6 +6,7 @@ import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
 import { useMessages } from '../context/MessagesContext'
 import { useSettings } from '../context/SettingsContext'
+import { resolveDisplayClient } from '../lib/resolveDisplayClient'
 
 export function MessagesPage() {
   const { getClient } = useClients()
@@ -20,8 +21,8 @@ export function MessagesPage() {
         <div>
           <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Mensagens</h2>
           <p className="mt-1 text-slate-500">
-            Histórico das mensagens enviadas por {settings.companyName}. Respostas reais do WhatsApp entram quando você
-            registra manualmente.
+            Histórico das mensagens de {settings.companyName}. Respostas reais do WhatsApp entram automaticamente pelo
+            webhook da Meta (e também via registro manual).
           </p>
         </div>
         <button
@@ -50,8 +51,13 @@ export function MessagesPage() {
             </thead>
             <tbody>
               {messages.map((msg) => {
-                const client = getClient(msg.clientId)
-                if (!client) return null
+                const client = resolveDisplayClient(getClient, {
+                  clientId: msg.clientId,
+                  fromPhone: msg.fromPhone,
+                  customerPhone: msg.fromPhone,
+                  customerName: undefined,
+                  phone: msg.fromPhone,
+                })
                 return (
                   <tr key={msg.id} className="border-b border-slate-50">
                     <td className="px-5 py-3">

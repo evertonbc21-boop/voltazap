@@ -11,6 +11,7 @@ import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
 import { useMessages } from '../context/MessagesContext'
 import { useSettings } from '../context/SettingsContext'
+import { resolveDisplayClient } from '../lib/resolveDisplayClient'
 import type { ReplyOutcome } from '../types'
 
 const OUTCOME_OPTIONS: { value: 'todos' | ReplyOutcome; label: string }[] = [
@@ -81,14 +82,14 @@ export function ResultsPage() {
   const filteredReplies = useMemo(() => {
     const q = replyQuery.trim().toLowerCase()
     return replies.filter((row) => {
-      const client = getClient(row.clientId)
-      if (!client) return false
+      const client = resolveDisplayClient(getClient, row)
       const matchesOutcome = outcomeFilter === 'todos' || row.outcome === outcomeFilter
       const matchesQuery =
         !q ||
         client.nome.toLowerCase().includes(q) ||
         client.produtoFavorito.toLowerCase().includes(q) ||
-        row.reply.toLowerCase().includes(q)
+        row.reply.toLowerCase().includes(q) ||
+        (row.fromPhone || '').includes(q)
       return matchesOutcome && matchesQuery
     })
   }, [replies, replyQuery, outcomeFilter, getClient])
@@ -266,8 +267,7 @@ export function ResultsPage() {
               </thead>
               <tbody>
                 {filteredReplies.map((row) => {
-                  const client = getClient(row.clientId)
-                  if (!client) return null
+                  const client = resolveDisplayClient(getClient, row)
                   return (
                     <tr key={row.id} className="border-b border-slate-50 last:border-0">
                       <td className="px-5 py-3">

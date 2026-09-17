@@ -30,6 +30,22 @@ export async function processWhatsAppWebhook(body, options = {}) {
       type: msg.type || null,
     })
 
+    console.log('whatsapp webhook extracted', {
+      from: fromPhone || msg.fromPhone || null,
+      'text.body': msg.text || null,
+      wamid: msg.waMessageId || null,
+      type: msg.type || null,
+      timestamp: msg.timestamp || null,
+      contactName: msg.contactName || null,
+    })
+
+    // No servidor a identidade do cliente é o telefone (CRM fica no frontend).
+    console.log('whatsapp webhook client matched', {
+      phone: fromPhone || null,
+      matchedBy: 'phone',
+      contactName: msg.contactName || null,
+    })
+
     const event = {
       id: msg.waMessageId || `in-${randomUUID()}`,
       kind: /** @type {'message'} */ ('message'),
@@ -85,7 +101,7 @@ export async function processWhatsAppWebhook(body, options = {}) {
         source: event.source,
       })
     } else {
-      console.log('whatsapp webhook message stored', {
+      console.log('whatsapp webhook message not stored', {
         stored: false,
         wamid: event.waMessageId,
         phone: event.fromPhone,
