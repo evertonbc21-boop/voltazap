@@ -11,7 +11,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { getRawBody, sendJson } from '../../_lib/http.js'
+import { readJsonBodySafe, sendJson } from '../../_lib/http.js'
 import { processWhatsAppWebhook } from '../../_lib/processInbound.js'
 
 export default async function handler(req, res) {
@@ -99,28 +99,65 @@ function handleVerify(req, res) {
 }
 
 async function handleEvent(req, res) {
-  try {
-    const rawBody = await getRawBody(req)
-    const signature = req.headers['x-hub-signature-256']
-    const appSecret = process.env.WHATSAPP_APP_SECRET
+  console.log('whatsapp webhook received', {
+    method: req.method,
+    contentType: req.headers['content-type'] || null,
+    hasSignature: Boolean(req.headers['x-hub-signature-256']),
+  })
 
+  try {
+    const parsed = await readJsonBodySafe(req)
+
+    if (!parsed.ok) {
+      console.error('whatsapp webhook invalid body', {
+        reason: parsed.reason,
+        rawLength: parsed.raw ? parsed.raw.length : 0,
+      })
+      // Resposta controlada: não gera 500 nem exception não tratada.
+      // 200 evita retry agressivo da Meta em payloads vazios/lixo de probes.
+      return sendJson(res, 200, { ok: false, error: 'invalid_body', reason: parsed.reason })
+    }
+
+    const body = parsed.body
+    const rawBody = parsed.raw
+
+    console.log('whatsapp webhook parsed', {
+      object: body.object || null,
+      entries: Array.isArray(body.entry) ? body.entry.length : 0,
+    })
+
+    const appSecret = process.env.WHATSAPP_APP_SECRET
+    const signature = req.headers['x-hub-signature-256']
     if (appSecret) {
       const valid = verifySignature(rawBody, signature, appSecret)
       if (!valid) {
+        console.error('whatsapp webhook invalid signature')
         return sendJson(res, 401, { error: 'invalid_signature' })
       }
     }
 
-    let body
-    try {
-      body = rawBody ? JSON.parse(rawBody) : req.body || {}
-    } catch {
-      return sendJson(res, 400, { error: 'invalid_json' })
-    }
-
     const result = await processWhatsAppWebhook(body, { source: 'meta_whatsapp' })
 
-    // Meta espera 200 rápido — processamento já é síncrono e leve (memória)
+    for (const event of result.events || []) {
+      if (event.kind !== 'message') continue
+      console.log('whatsapp webhook message received', {
+        wamid: event.waMessageId || null,
+        phone: event.fromPhone || null,
+        text: event.text || null,
+        timestamp: event.timestamp || event.receivedAt || null,
+        stored: true,
+      })
+    }
+
+    // Também loga mensagens parseadas que foram duplicadas (não regravadas)
+    if (result.messages > 0 && result.stored === 0) {
+      console.log('whatsapp webhook message received', {
+        note: 'duplicate_or_unstored',
+        messages: result.messages,
+        stored: result.stored,
+      })
+    }
+
     return sendJson(res, 200, {
       ok: true,
       received: {
@@ -131,14 +168,15 @@ async function handleEvent(req, res) {
     })
   } catch (error) {
     console.error('whatsapp webhook error', error)
-    return sendJson(res, 500, { error: 'server_error' })
+    // Último recurso: ainda assim evita 500 para a Meta (retry storm).
+    return sendJson(res, 200, { ok: false, error: 'handled_error' })
   }
 }
 
 function verifySignature(rawBody, signatureHeader, appSecret) {
   if (!signatureHeader || typeof signatureHeader !== 'string') return false
   const expected =
-    'sha256=' + createHmac('sha256', appSecret).update(rawBody, 'utf8').digest('hex')
+    'sha256=' + createHmac('sha256', appSecret).update(rawBody || '', 'utf8').digest('hex')
   try {
     const a = Buffer.from(expected)
     const b = Buffer.from(signatureHeader)
