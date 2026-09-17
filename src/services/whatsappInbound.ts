@@ -9,6 +9,19 @@ export async function fetchInboundMessages(pendingOnly = true): Promise<InboundW
   return Array.isArray(data.events) ? data.events : []
 }
 
+/** Long-poll: retorna assim que houver pendentes (ou no timeout). */
+export async function waitInboundMessages(
+  timeoutMs = 8000,
+  signal?: AbortSignal,
+): Promise<InboundWhatsAppEvent[]> {
+  const response = await fetch(`/api/inbound-messages/wait?timeoutMs=${timeoutMs}`, { signal })
+  if (!response.ok) {
+    throw new Error(`inbound_wait_failed_${response.status}`)
+  }
+  const data = (await response.json()) as { events?: InboundWhatsAppEvent[] }
+  return Array.isArray(data.events) ? data.events : []
+}
+
 export async function ackInboundMessages(ids: string[]): Promise<void> {
   if (!ids.length) return
   await fetch('/api/inbound-messages/ack', {

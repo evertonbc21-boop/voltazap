@@ -2,12 +2,15 @@ import { useEffect, useRef } from 'react'
 import { useClients } from '../context/ClientsContext'
 import { useMessages } from '../context/MessagesContext'
 import { findClientByPhone } from '../lib/phoneMatch'
-import { ackInboundMessages, fetchInboundMessages } from '../services/whatsappInbound'
+import {
+  ackInboundMessages,
+  fetchInboundMessages,
+  waitInboundMessages,
+} from '../services/whatsappInbound'
 import type { InboundWhatsAppEvent, MessageStatus, ReplyOutcome, ReplySource } from '../types'
 
-/** Um único poll a cada 10s. */
-export const INBOUND_POLL_MS = 10_000
-
+/** Timeout do long-poll no servidor (reconecta na hora). */
+const WAIT_MS = 8_000
 const LOCK_KEY = 'voltazap-inbound-poll-leader'
 const TAB_ID = `tab-${Math.random().toString(36).slice(2)}-${Date.now()}`
 
@@ -26,12 +29,10 @@ type SyncHandlers = {
   hasWa: ReturnType<typeof useMessages>['hasWaMessage']
 }
 
-/** Estado global do poller — fora do React, sobrevive a StrictMode/remount. */
 let started = false
-let timerId: number | null = null
-let inFlight = false
 let handlers: SyncHandlers | null = null
 let subscriberCount = 0
+let loopAbort: AbortController | null = null
 
 function mapSource(source: ReplySource | string | undefined): ReplySource {
   if (source === 'mock') return 'mock'
@@ -39,132 +40,169 @@ function mapSource(source: ReplySource | string | undefined): ReplySource {
   return 'meta_whatsapp'
 }
 
-/** Só uma aba do VoltaZap faz GET — evita N abas × poll. */
 function claimLeadership(): boolean {
   try {
     const now = Date.now()
     const raw = localStorage.getItem(LOCK_KEY)
     const lock = raw ? (JSON.parse(raw) as { id: string; until: number }) : null
     if (lock && lock.until > now && lock.id !== TAB_ID) return false
-    localStorage.setItem(LOCK_KEY, JSON.stringify({ id: TAB_ID, until: now + INBOUND_POLL_MS + 2_000 }))
+    localStorage.setItem(LOCK_KEY, JSON.stringify({ id: TAB_ID, until: now + WAIT_MS + 5_000 }))
     return true
   } catch {
     return true
   }
 }
 
-async function runSyncOnce() {
+async function processEvents(eventsRaw: InboundWhatsAppEvent[]) {
   if (!handlers) return
-  if (inFlight) return
-  if (document.visibilityState === 'hidden') return
-  if (!claimLeadership()) return
 
-  inFlight = true
-  try {
-    console.log('inbound poll tick', {
-      at: new Date().toISOString(),
-      intervalMs: INBOUND_POLL_MS,
-      tab: TAB_ID.slice(0, 12),
+  const byId = new Map<string, InboundWhatsAppEvent>()
+  for (const event of eventsRaw) {
+    if (event.kind !== 'message') {
+      if (event.kind === 'status' && !event.processed) byId.set(event.id, event)
+      continue
+    }
+    const key = event.waMessageId || event.id
+    if (!byId.has(key)) byId.set(key, event)
+  }
+
+  const events = [...byId.values()]
+  if (!events.length) return
+
+  const acked: string[] = []
+  const h = handlers
+
+  for (const event of events) {
+    if (event.kind === 'status') {
+      if (event.waMessageId && event.status) {
+        const mapped = STATUS_MAP[event.status]
+        if (mapped) h.applyStatus(event.waMessageId, mapped, event.fromPhone)
+      }
+      if (!event.processed) acked.push(event.id)
+      continue
+    }
+
+    const phone = event.fromPhone || ''
+    const wamid = event.waMessageId || event.id
+
+    if (wamid && h.hasWa(wamid)) {
+      if (!event.processed) acked.push(event.id)
+      continue
+    }
+
+    let client = findClientByPhone(h.getClients(), phone)
+    if (!client) {
+      if (!phone) {
+        console.error('whatsapp inbound skip: missing phone', { wamid: wamid || null })
+        continue
+      }
+      client = h.ensureClient({ phone, name: event.contactName }).client
+    }
+
+    const outcome = (event.analysis?.outcome || 'interessado') as ReplyOutcome
+    const orderValue =
+      outcome === 'pedido_realizado'
+        ? event.analysis?.orderValue ?? event.analysis?.valorPedido ?? undefined
+        : undefined
+
+    const result = h.ingest({
+      clientId: client.id,
+      clientName: client.nome || event.contactName || 'Cliente',
+      contactName: event.contactName || client.nome,
+      reply: event.text || '',
+      outcome,
+      orderValue: typeof orderValue === 'number' ? orderValue : undefined,
+      source: mapSource(event.source),
+      intent: event.analysis?.intentLabel || event.analysis?.intent || 'Interessado',
+      fromPhone: event.fromPhone,
+      waMessageId: wamid,
+      conversationStatus:
+        event.analysis?.conversationStatus || event.analysis?.statusConversa || 'replied',
+      receivedAtIso: event.receivedAt,
+      messagePreview: `WhatsApp · ${client.nome}`,
+      messageType: event.type || 'text',
     })
 
-    // Uma chamada só (pending=0 = todas, para recuperação + pendentes)
-    const eventsRaw = await fetchInboundMessages(false)
+    if (result.ok) acked.push(event.id)
+    else console.error('whatsapp webhook local ingest failed', result)
+  }
 
-    const byId = new Map<string, InboundWhatsAppEvent>()
-    for (const event of eventsRaw) {
-      if (event.kind !== 'message') {
-        if (event.kind === 'status' && !event.processed) byId.set(event.id, event)
-        continue
-      }
-      const key = event.waMessageId || event.id
-      if (!byId.has(key)) byId.set(key, event)
-    }
+  if (acked.length) await ackInboundMessages(acked)
+}
 
-    const events = [...byId.values()]
-    if (!events.length) return
+async function hydrateOnce(signal: AbortSignal) {
+  if (!claimLeadership()) return
+  console.log('inbound hydrate', { at: new Date().toISOString() })
+  const events = await fetchInboundMessages(false)
+  if (signal.aborted) return
+  await processEvents(events)
+}
 
-    const acked: string[] = []
-    const h = handlers
-
-    for (const event of events) {
-      if (event.kind === 'status') {
-        if (event.waMessageId && event.status) {
-          const mapped = STATUS_MAP[event.status]
-          if (mapped) h.applyStatus(event.waMessageId, mapped, event.fromPhone)
-        }
-        if (!event.processed) acked.push(event.id)
-        continue
-      }
-
-      const phone = event.fromPhone || ''
-      const wamid = event.waMessageId || event.id
-
-      if (wamid && h.hasWa(wamid)) {
-        if (!event.processed) acked.push(event.id)
-        continue
-      }
-
-      let clients = h.getClients()
-      let client = findClientByPhone(clients, phone)
-      if (!client) {
-        if (!phone) {
-          console.error('whatsapp inbound skip: missing phone', { wamid: wamid || null })
-          continue
-        }
-        client = h.ensureClient({ phone, name: event.contactName }).client
-      }
-
-      const outcome = (event.analysis?.outcome || 'interessado') as ReplyOutcome
-      const orderValue =
-        outcome === 'pedido_realizado'
-          ? event.analysis?.orderValue ?? event.analysis?.valorPedido ?? undefined
-          : undefined
-
-      const result = h.ingest({
-        clientId: client.id,
-        clientName: client.nome || event.contactName || 'Cliente',
-        contactName: event.contactName || client.nome,
-        reply: event.text || '',
-        outcome,
-        orderValue: typeof orderValue === 'number' ? orderValue : undefined,
-        source: mapSource(event.source),
-        intent: event.analysis?.intentLabel || event.analysis?.intent || 'Interessado',
-        fromPhone: event.fromPhone,
-        waMessageId: wamid,
-        conversationStatus:
-          event.analysis?.conversationStatus || event.analysis?.statusConversa || 'replied',
-        receivedAtIso: event.receivedAt,
-        messagePreview: `WhatsApp · ${client.nome}`,
-        messageType: event.type || 'text',
-      })
-
-      if (result.ok) acked.push(event.id)
-      else console.error('whatsapp webhook local ingest failed', result)
-    }
-
-    if (acked.length) await ackInboundMessages(acked)
+async function runRealtimeLoop(signal: AbortSignal) {
+  // 1) captura o que já estava pendente / para recuperar
+  try {
+    await hydrateOnce(signal)
   } catch (error) {
-    console.error('whatsapp inbound sync error', error)
-  } finally {
-    inFlight = false
+    if (!signal.aborted) console.error('whatsapp inbound hydrate error', error)
+  }
+
+  // 2) long-poll contínuo → chega mensagem no webhook ≈ aparece na hora
+  while (!signal.aborted) {
+    if (document.visibilityState === 'hidden') {
+      await new Promise<void>((resolve) => {
+        const onVis = () => {
+          if (document.visibilityState === 'visible') {
+            document.removeEventListener('visibilitychange', onVis)
+            resolve()
+          }
+        }
+        document.addEventListener('visibilitychange', onVis)
+        signal.addEventListener('abort', () => {
+          document.removeEventListener('visibilitychange', onVis)
+          resolve()
+        }, { once: true })
+      })
+      if (signal.aborted) break
+      try {
+        await hydrateOnce(signal)
+      } catch {
+        /* ignore */
+      }
+      continue
+    }
+
+    if (!claimLeadership()) {
+      await new Promise((r) => setTimeout(r, 2_000))
+      continue
+    }
+
+    try {
+      console.log('inbound wait tick', { at: new Date().toISOString(), timeoutMs: WAIT_MS })
+      const pending = await waitInboundMessages(WAIT_MS, signal)
+      if (signal.aborted) break
+      if (pending.length) {
+        console.log('inbound wait got messages', { count: pending.length })
+        await processEvents(pending)
+      }
+    } catch (error) {
+      if (signal.aborted) break
+      console.error('whatsapp inbound wait error', error)
+      await new Promise((r) => setTimeout(r, 1_500))
+    }
   }
 }
 
-function startGlobalPoller() {
+function startRealtime() {
   if (started) return
   started = true
-  void runSyncOnce()
-  timerId = window.setInterval(() => {
-    void runSyncOnce()
-  }, INBOUND_POLL_MS)
+  loopAbort = new AbortController()
+  void runRealtimeLoop(loopAbort.signal)
 }
 
-function stopGlobalPollerIfIdle() {
+function stopRealtimeIfIdle() {
   if (subscriberCount > 0) return
-  if (timerId != null) {
-    window.clearInterval(timerId)
-    timerId = null
-  }
+  loopAbort?.abort()
+  loopAbort = null
   started = false
   handlers = null
   try {
@@ -177,8 +215,8 @@ function stopGlobalPollerIfIdle() {
 }
 
 /**
- * Ponte: GET /api/inbound-messages → localStorage.
- * Um único setInterval global por aba; entre abas, só o líder faz GET.
+ * Ponte em tempo quase real: long-poll /api/inbound-messages/wait
+ * → localStorage → Resultados/Mensagens.
  */
 export function useWhatsAppInboundSync(enabled = true) {
   const { clients, ensureClientFromWhatsApp } = useClients()
@@ -208,11 +246,11 @@ export function useWhatsAppInboundSync(enabled = true) {
     }
 
     subscriberCount += 1
-    startGlobalPoller()
+    startRealtime()
 
     return () => {
       subscriberCount = Math.max(0, subscriberCount - 1)
-      stopGlobalPollerIfIdle()
+      stopRealtimeIfIdle()
     }
   }, [enabled])
 }
