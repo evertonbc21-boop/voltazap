@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
-import { PRODUCTS } from '../data/mock'
 import type { Client, ClientStatus } from '../types'
 import { useClients } from '../context/ClientsContext'
 
@@ -15,7 +14,7 @@ const emptyForm = {
   whatsapp: '',
   ultimoPedido: toInputDate(new Date()),
   frequenciaMedia: '14',
-  produtoFavorito: PRODUCTS[0] as string,
+  produtoFavorito: '',
   valorMedio: '60',
   quantidadePedidos: '1',
   status: 'proxima_compra' as ClientStatus,
@@ -46,13 +45,18 @@ export function AddClientModal({ open, onClose, onAdded }: AddClientModalProps) 
       setError('Informe um WhatsApp válido com DDD.')
       return
     }
+    const produtoFavorito = form.produtoFavorito.trim()
+    if (!produtoFavorito) {
+      setError('Informe o produto ou serviço favorito.')
+      return
+    }
 
     const payload: Omit<Client, 'id' | 'avatarColor'> = {
       nome,
       whatsapp: formatPhone(form.whatsapp),
       ultimoPedido: fromInputDate(form.ultimoPedido),
       frequenciaMedia: Math.max(1, Number(form.frequenciaMedia) || 14),
-      produtoFavorito: form.produtoFavorito,
+      produtoFavorito,
       valorMedio: Math.max(0, Number(form.valorMedio.replace(',', '.')) || 0),
       quantidadePedidos: Math.max(1, Number(form.quantidadePedidos) || 1),
       status: form.status,
@@ -120,18 +124,13 @@ export function AddClientModal({ open, onClose, onAdded }: AddClientModalProps) 
             />
           </label>
           <label className="sm:col-span-2 text-sm font-medium text-slate-600">
-            Produto favorito
-            <select
+            Produto / serviço favorito
+            <input
               value={form.produtoFavorito}
               onChange={(e) => setForm({ ...form, produtoFavorito: e.target.value })}
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal text-slate-800 outline-none focus:border-brand"
-            >
-              {PRODUCTS.map((product) => (
-                <option key={product} value={product}>
-                  {product}
-                </option>
-              ))}
-            </select>
+              placeholder="Ex: Calabresa, corte masculino, consulta..."
+            />
           </label>
           <label className="text-sm font-medium text-slate-600">
             Valor médio
