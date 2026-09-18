@@ -32,6 +32,7 @@ export function parseWhatsAppWebhookBody(body) {
   const statuses = []
 
   if (!body || body.object !== 'whatsapp_business_account') {
+    console.warn('whatsapp parse skip: invalid object', { object: body?.object || null })
     return { messages, statuses }
   }
 
@@ -41,6 +42,12 @@ export function parseWhatsAppWebhookBody(body) {
     for (const change of changes) {
       const value = change?.value
       if (!value) continue
+
+      // Aceita field "messages" e também mudanças sem field (payloads legados/teste)
+      if (change.field && change.field !== 'messages') {
+        console.log('whatsapp parse skip field', { field: change.field })
+        continue
+      }
 
       const phoneNumberId = value.metadata?.phone_number_id
       const contacts = Array.isArray(value.contacts) ? value.contacts : []

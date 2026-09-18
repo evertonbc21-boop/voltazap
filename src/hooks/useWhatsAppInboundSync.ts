@@ -129,43 +129,57 @@ async function runWaitLoop(signal: AbortSignal) {
     if (!signal.aborted) console.error('whatsapp inbound hydrate error', error)
   }
 
-  while (!signal.aborted) {
-    if (document.visibilityState === 'hidden') {
-      await new Promise<void>((resolve) => {
-        const onVis = () => {
-          if (document.visibilityState === 'visible') {
-            document.removeEventListener('visibilitychange', onVis)
-            resolve()
-          }
-        }
-        document.addEventListener('visibilitychange', onVis)
-        signal.addEventListener(
-          'abort',
-          () => {
-            document.removeEventListener('visibilitychange', onVis)
-            resolve()
-          },
-          { once: true },
-        )
+  // Backup: GET pending a cada 5s caso o long-poll falhe/fique preso
+  const backup = window.setInterval(() => {
+    if (signal.aborted || document.visibilityState === 'hidden') return
+    void fetchInboundMessages(true)
+      .then((pending) => {
+        if (!signal.aborted && pending.length) return processEvents(pending)
       })
-      if (signal.aborted) break
-      try {
-        await hydrateOnce(signal)
-      } catch {
-        /* ignore */
-      }
-      continue
-    }
+      .catch(() => {})
+  }, 5_000)
 
-    try {
-      const pending = await waitInboundMessages(WAIT_MS, signal)
-      if (signal.aborted) break
-      if (pending.length) await processEvents(pending)
-    } catch (error) {
-      if (signal.aborted) break
-      console.error('whatsapp inbound wait error', error)
-      await new Promise((r) => setTimeout(r, 1_500))
+  try {
+    while (!signal.aborted) {
+      if (document.visibilityState === 'hidden') {
+        await new Promise<void>((resolve) => {
+          const onVis = () => {
+            if (document.visibilityState === 'visible') {
+              document.removeEventListener('visibilitychange', onVis)
+              resolve()
+            }
+          }
+          document.addEventListener('visibilitychange', onVis)
+          signal.addEventListener(
+            'abort',
+            () => {
+              document.removeEventListener('visibilitychange', onVis)
+              resolve()
+            },
+            { once: true },
+          )
+        })
+        if (signal.aborted) break
+        try {
+          await hydrateOnce(signal)
+        } catch {
+          /* ignore */
+        }
+        continue
+      }
+
+      try {
+        const pending = await waitInboundMessages(WAIT_MS, signal)
+        if (signal.aborted) break
+        if (pending.length) await processEvents(pending)
+      } catch (error) {
+        if (signal.aborted) break
+        console.error('whatsapp inbound wait error', error)
+        await new Promise((r) => setTimeout(r, 1_500))
+      }
     }
+  } finally {
+    window.clearInterval(backup)
   }
 }
 

@@ -9,18 +9,11 @@
  */
 
 import { normalizePhone } from '../_lib/phone.js'
+import { getPhoneNumberId, getWhatsAppToken } from '../_lib/metaGraph.js'
 import { readJsonBodySafe, sendJson } from '../_lib/http.js'
 import { silenceUrlParseDeprecation } from '../_lib/silenceDep0169.js'
 
 silenceUrlParseDeprecation()
-
-function getToken() {
-  return (process.env.WHATSAPP_TOKEN || process.env.WHATSAPP_ACCESS_TOKEN || '').trim()
-}
-
-function getPhoneNumberId() {
-  return (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim()
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -28,14 +21,14 @@ export default async function handler(req, res) {
     return sendJson(res, 405, { error: 'method_not_allowed' })
   }
 
-  const token = getToken()
+  const token = getWhatsAppToken()
   const phoneNumberId = getPhoneNumberId()
 
   if (!token || !phoneNumberId) {
     return sendJson(res, 503, {
       ok: false,
       error: 'whatsapp_not_configured',
-      hint: 'Defina WHATSAPP_TOKEN e WHATSAPP_PHONE_NUMBER_ID na Vercel.',
+      hint: 'Defina WHATSAPP_ACCESS_TOKEN (ou WHATSAPP_TOKEN) e WHATSAPP_PHONE_NUMBER_ID na Vercel.',
       configured: false,
     })
   }

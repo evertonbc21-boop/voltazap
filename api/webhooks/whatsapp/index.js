@@ -13,6 +13,10 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { readJsonBodySafe, sendJson } from '../../_lib/http.js'
 import { processWhatsAppWebhook } from '../../_lib/processInbound.js'
+import { recordWebhookHit } from '../../_lib/webhookHits.js'
+import { silenceUrlParseDeprecation } from '../../_lib/silenceDep0169.js'
+
+silenceUrlParseDeprecation()
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -113,6 +117,13 @@ async function handleEvent(req, res) {
         reason: parsed.reason,
         rawLength: parsed.raw ? parsed.raw.length : 0,
       })
+      await recordWebhookHit({
+        ok: false,
+        reason: parsed.reason,
+        messages: 0,
+        statuses: 0,
+        stored: 0,
+      })
       // Resposta controlada: não gera 500 nem exception não tratada.
       // 200 evita retry agressivo da Meta em payloads vazios/lixo de probes.
       return sendJson(res, 200, { ok: false, error: 'invalid_body', reason: parsed.reason })
@@ -132,11 +143,27 @@ async function handleEvent(req, res) {
       const valid = verifySignature(rawBody, signature, appSecret)
       if (!valid) {
         console.error('whatsapp webhook invalid signature')
+        await recordWebhookHit({ ok: false, reason: 'invalid_signature', messages: 0, statuses: 0, stored: 0 })
         return sendJson(res, 401, { error: 'invalid_signature' })
       }
     }
 
     const result = await processWhatsAppWebhook(body, { source: 'meta_whatsapp' })
+
+    const sampleText =
+      (result.events || []).find((e) => e.kind === 'message')?.text ||
+      null
+
+    await recordWebhookHit({
+      ok: true,
+      messages: result.messages,
+      statuses: result.statuses,
+      stored: result.stored,
+      sampleText,
+      fields: Array.isArray(body.entry)
+        ? body.entry.flatMap((e) => (e.changes || []).map((c) => c.field)).filter(Boolean)
+        : [],
+    })
 
     return sendJson(res, 200, {
       ok: true,
@@ -148,6 +175,7 @@ async function handleEvent(req, res) {
     })
   } catch (error) {
     console.error('whatsapp webhook error', error)
+    await recordWebhookHit({ ok: false, reason: 'handled_error', messages: 0, statuses: 0, stored: 0 })
     // Último recurso: ainda assim evita 500 para a Meta (retry storm).
     return sendJson(res, 200, { ok: false, error: 'handled_error' })
   }

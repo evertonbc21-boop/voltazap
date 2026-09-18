@@ -8,7 +8,14 @@ import { SEGMENTS, useSettings, type BusinessSettings, type Segment } from '../c
 import { findClientByPhone } from '../lib/phoneMatch'
 import { toWhatsAppPhone } from '../lib/whatsapp'
 import { mockInboundWhatsAppMessage } from '../services/whatsappInbound'
-import { fetchWhatsAppCloudStatus, sendWhatsAppCloudText, type WhatsAppCloudStatus } from '../services/whatsappCloud'
+import {
+  fetchWhatsAppCloudStatus,
+  fetchWhatsAppDiagnostics,
+  repairWhatsAppSubscription,
+  sendWhatsAppCloudText,
+  type WhatsAppCloudStatus,
+  type WhatsAppDiagnostics,
+} from '../services/whatsappCloud'
 import type { ReplyOutcome } from '../types'
 
 export function SettingsPage() {
@@ -27,6 +34,9 @@ export function SettingsPage() {
   const [mockBusy, setMockBusy] = useState(false)
   const [mockHint, setMockHint] = useState('')
   const [cloudStatus, setCloudStatus] = useState<WhatsAppCloudStatus | null>(null)
+  const [diagnostics, setDiagnostics] = useState<WhatsAppDiagnostics | null>(null)
+  const [diagBusy, setDiagBusy] = useState(false)
+  const [diagHint, setDiagHint] = useState('')
 
   useEffect(() => {
     setForm(settings)
@@ -34,7 +44,36 @@ export function SettingsPage() {
 
   useEffect(() => {
     void fetchWhatsAppCloudStatus().then(setCloudStatus)
+    void fetchWhatsAppDiagnostics().then(setDiagnostics)
   }, [])
+
+  async function runRepairSubscription() {
+    setDiagBusy(true)
+    setDiagHint('')
+    try {
+      const result = await repairWhatsAppSubscription()
+      setDiagnostics(result.report || result)
+      setDiagHint(
+        result.ok
+          ? 'Inscrição no WABA reparada. Envie “oi” do celular e aguarde alguns segundos.'
+          : `Falha ao reparar: ${JSON.stringify(result.repair || result.issues || result)}`,
+      )
+    } catch (error) {
+      setDiagHint(error instanceof Error ? error.message : 'Erro ao reparar inscrição')
+    } finally {
+      setDiagBusy(false)
+    }
+  }
+
+  async function refreshDiagnostics() {
+    setDiagBusy(true)
+    try {
+      const report = await fetchWhatsAppDiagnostics()
+      setDiagnostics(report)
+    } finally {
+      setDiagBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (!toast) return
@@ -280,7 +319,7 @@ export function SettingsPage() {
           <p className="rounded-xl bg-emerald-50 px-3 py-3 text-sm leading-relaxed break-words text-emerald-800">
             {cloudStatus?.configured
               ? 'WhatsApp Cloud API conectada: campanhas e conversas enviam pela Meta. Respostas entram em Mensagens e Resultados.'
-              : 'Defina WHATSAPP_TOKEN e WHATSAPP_PHONE_NUMBER_ID na Vercel para enviar pela API. Sem isso, o VoltaZap usa wa.me como fallback.'}
+              : 'Defina WHATSAPP_ACCESS_TOKEN e WHATSAPP_PHONE_NUMBER_ID na Vercel para enviar pela API. Sem isso, o VoltaZap usa wa.me como fallback.'}
           </p>
         )}
         <p className="text-xs leading-relaxed break-words text-slate-400">
@@ -325,7 +364,7 @@ export function SettingsPage() {
             {cloudStatus?.hasVerifyToken ? ' ✓' : ''}
           </li>
           <li>
-            <code className="rounded bg-slate-100 px-1">WHATSAPP_TOKEN</code> → token permanente da Meta
+            <code className="rounded bg-slate-100 px-1">WHATSAPP_ACCESS_TOKEN</code> → token permanente da Meta
             {cloudStatus?.hasToken ? ' ✓' : ''}
           </li>
           <li>
@@ -333,10 +372,60 @@ export function SettingsPage() {
             {cloudStatus?.hasPhoneNumberId ? ' ✓' : ''}
           </li>
           <li>
+            <code className="rounded bg-slate-100 px-1">WHATSAPP_BUSINESS_ACCOUNT_ID</code> → WABA (inscrição webhook)
+          </li>
+          <li>
             Opcional: <code className="rounded bg-slate-100 px-1">WHATSAPP_APP_SECRET</code>
             {cloudStatus?.hasAppSecret ? ' ✓' : ''}
           </li>
         </ul>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h4 className="text-sm font-semibold text-slate-800">Diagnóstico ponta a ponta</h4>
+          <p className="mt-1 text-xs text-slate-500">
+            Verifica se a Meta está inscrita no WABA e se o webhook chegou neste servidor.
+          </p>
+          {diagnostics?.issues?.length ? (
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-800">
+              {diagnostics.issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-emerald-700">
+              {diagnostics?.healthy ? '✓ Sem problemas detectados no servidor.' : 'Carregando diagnóstico…'}
+            </p>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Última msg no servidor:{' '}
+            {diagnostics?.lastInboundMessageAt
+              ? `${diagnostics.lastInboundMessageAt}${
+                  diagnostics.minutesSinceLastInboundMessage != null
+                    ? ` (${diagnostics.minutesSinceLastInboundMessage} min atrás)`
+                    : ''
+                }`
+              : 'nenhuma'}
+          </p>
+          {diagHint ? <p className="mt-2 text-sm text-slate-700">{diagHint}</p> : null}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              disabled={diagBusy}
+              onClick={() => void refreshDiagnostics()}
+              className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
+            >
+              Atualizar diagnóstico
+            </button>
+            <button
+              type="button"
+              disabled={diagBusy}
+              onClick={() => void runRepairSubscription()}
+              className="inline-flex flex-1 items-center justify-center rounded-xl bg-brand px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
+            >
+              {diagBusy ? 'Reparando…' : 'Reparar inscrição Meta'}
+            </button>
+          </div>
+        </div>
 
         <div className="rounded-xl border border-dashed border-slate-200 p-4">
           <h4 className="text-sm font-semibold text-slate-800">Modo teste / mock</h4>

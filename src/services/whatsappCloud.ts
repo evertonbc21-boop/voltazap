@@ -85,3 +85,35 @@ export async function sendClientWhatsAppCloud(client: Client, template: string) 
   const text = personalizeMessage(template, client)
   return sendWhatsAppCloudText({ to: client.whatsapp, text })
 }
+
+export type WhatsAppDiagnostics = {
+  ok: boolean
+  healthy?: boolean
+  callbackUrl?: string
+  issues?: string[]
+  lastInboundMessageAt?: string | null
+  minutesSinceLastInboundMessage?: number | null
+  store?: {
+    pendingMessages: number
+    totalEvents: number
+    latest: { text?: string; phone?: string; at?: string; processed?: boolean } | null
+  }
+  subscribedApps?: unknown
+  phoneNumber?: unknown
+  webhookHits?: Array<{ at: string; messages?: number; sampleText?: string | null; ok?: boolean }>
+  repair?: unknown
+  report?: WhatsAppDiagnostics
+}
+
+export async function fetchWhatsAppDiagnostics(): Promise<WhatsAppDiagnostics> {
+  const response = await fetch('/api/whatsapp/diagnostics')
+  if (!response.ok) return { ok: false, issues: [`http_${response.status}`] }
+  return (await response.json()) as WhatsAppDiagnostics
+}
+
+/** Repara inscrição do app no WABA + override do callback. */
+export async function repairWhatsAppSubscription(): Promise<WhatsAppDiagnostics> {
+  const response = await fetch('/api/whatsapp/diagnostics', { method: 'POST' })
+  const data = (await response.json().catch(() => ({}))) as WhatsAppDiagnostics
+  return data
+}
