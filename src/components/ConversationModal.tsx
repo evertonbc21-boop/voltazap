@@ -1,8 +1,11 @@
-import { X } from 'lucide-react'
-import { PIZZA_PROMO_IMAGE } from '../data/mock'
+import { useEffect, useMemo, useState } from 'react'
+import { Send, X } from 'lucide-react'
 import { Avatar } from './ui/Avatar'
 import { useClients } from '../context/ClientsContext'
+import { useMessages } from '../context/MessagesContext'
 import { useSettings } from '../context/SettingsContext'
+import { openWhatsAppChat } from '../lib/whatsapp'
+import { sendWhatsAppCloudText } from '../services/whatsappCloud'
 
 interface ConversationModalProps {
   clientId: string | null
@@ -12,44 +15,68 @@ interface ConversationModalProps {
 export function ConversationModal({ clientId, onClose }: ConversationModalProps) {
   const { getClient } = useClients()
   const { settings } = useSettings()
-  if (!clientId) return null
-  const client = getClient(clientId)
-  if (!client) return null
+  const { getConversation, recordOutboundMessage } = useMessages()
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [hint, setHint] = useState('')
 
-  const chats: Record<string, { from: 'me' | 'them'; text: string; time: string }[]> = {
-    c1: [
-      {
-        from: 'me',
-        text: `Everton, já faz 21 dias que você não pede sua Calabresa com Catupiry. Quer repetir hoje? 🍕`,
-        time: '10:24',
-      },
-      { from: 'them', text: 'Quero! 😍', time: '10:24' },
-    ],
-    c3: [
-      { from: 'me', text: 'Sentimos sua falta! Já faz 35 dias desde sua última Marguerita.', time: '08:47' },
-      { from: 'them', text: 'Pode mandar uma grande 😂', time: '08:47' },
-    ],
-    c2: [
-      { from: 'me', text: 'Já está chegando aquela vontade de Portuguesa?', time: '09:15' },
-      { from: 'them', text: 'Sim, por favor!', time: '11:45' },
-    ],
-    c4: [
-      { from: 'me', text: 'Que tal um Frango com Catupiry hoje?', time: '08:30' },
-      { from: 'them', text: 'Hoje não, semana que vem eu peço.', time: '12:10' },
-    ],
-    c5: [
-      { from: 'me', text: 'Está na hora de repetir seu Quatro Queijos?', time: '07:52' },
-      { from: 'them', text: 'Qual o valor da grande?', time: '12:34' },
-    ],
+  const client = clientId ? getClient(clientId) : undefined
+  const thread = useMemo(
+    () => (clientId ? getConversation(clientId) : []),
+    [clientId, getConversation],
+  )
+
+  useEffect(() => {
+    setDraft('')
+    setHint('')
+  }, [clientId])
+
+  if (!clientId || !client) return null
+  const activeClient = client
+
+  async function handleSend() {
+    const text = draft.trim()
+    if (!text || busy) return
+    setBusy(true)
+    setHint('')
+
+    const result = await sendWhatsAppCloudText({ to: activeClient.whatsapp, text })
+    if (result.ok) {
+      recordOutboundMessage({
+        clientId: activeClient.id,
+        clientName: activeClient.nome,
+        text,
+        fromPhone: result.to,
+        waMessageId: result.waMessageId,
+        source: 'whatsapp_cloud',
+      })
+      setDraft('')
+      setHint('Mensagem enviada pela Cloud API.')
+      setBusy(false)
+      return
+    }
+
+    if (result.fallbackSuggested || result.error === 'whatsapp_not_configured') {
+      const opened = openWhatsAppChat(activeClient.whatsapp, text)
+      if (opened) {
+        recordOutboundMessage({
+          clientId: activeClient.id,
+          clientName: activeClient.nome,
+          text,
+          source: 'manual',
+        })
+        setDraft('')
+        setHint('Cloud API não configurada — abriu o WhatsApp Web como fallback.')
+      } else {
+        setHint(result.detail || 'Não foi possível enviar. Verifique o telefone.')
+      }
+      setBusy(false)
+      return
+    }
+
+    setHint(result.detail || result.error || 'Falha ao enviar.')
+    setBusy(false)
   }
-
-  const messages = chats[clientId] ?? [
-    {
-      from: 'me' as const,
-      text: `Olá, ${client.nome}! Que tal repetir sua ${client.produtoFavorito} hoje?`,
-      time: '10:00',
-    },
-  ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -59,36 +86,68 @@ export function ConversationModal({ clientId, onClose }: ConversationModalProps)
       >
         <div className="flex items-center justify-between bg-[#008069] px-4 py-3 text-white">
           <div className="flex items-center gap-3">
-            <Avatar name={client.nome} color={client.avatarColor} />
+            <Avatar name={activeClient.nome} color={activeClient.avatarColor} />
             <div>
-              <p className="text-sm font-semibold">{client.nome}</p>
-              <p className="text-[11px] text-white/80">WhatsApp · {client.whatsapp}</p>
+              <p className="text-sm font-semibold">{activeClient.nome}</p>
+              <p className="text-[11px] text-white/80">WhatsApp · {activeClient.whatsapp}</p>
             </div>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-white/10" aria-label="Fechar">
             <X size={18} />
           </button>
         </div>
-        <div className="wa-pattern max-h-[420px] min-h-[320px] space-y-2 overflow-y-auto p-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.from === 'me' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[80%] rounded-xl px-3 py-2 text-sm shadow ${
-                  msg.from === 'me' ? 'rounded-tr-sm bg-[#d9fdd3]' : 'rounded-tl-sm bg-white'
-                }`}
-              >
-                <p className="whitespace-pre-wrap text-slate-800">{msg.text}</p>
-                {msg.from === 'me' && i === 0 ? (
-                  <img src={PIZZA_PROMO_IMAGE} alt="Pizza" className="mt-2 h-28 w-full rounded-lg object-cover" />
-                ) : null}
-                <p className="mt-1 text-right text-[10px] text-slate-400">{msg.time}</p>
+
+        <div className="wa-pattern max-h-[420px] min-h-[280px] space-y-2 overflow-y-auto p-4">
+          {thread.length === 0 ? (
+            <p className="rounded-xl bg-white/80 px-3 py-2 text-center text-sm text-slate-500">
+              Nenhuma mensagem ainda. Envie a primeira pelo campo abaixo.
+            </p>
+          ) : (
+            thread.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.from === 'business' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[80%] rounded-xl px-3 py-2 text-sm shadow ${
+                    msg.from === 'business' ? 'rounded-tr-sm bg-[#d9fdd3]' : 'rounded-tl-sm bg-white'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap text-slate-800">{msg.text}</p>
+                  <p className="mt-1 text-right text-[10px] text-slate-400">{msg.time}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
-        <p className="border-t border-slate-100 px-4 py-3 text-center text-xs text-slate-400">
-          Prévia demonstrativa · {settings.companyName}
-        </p>
+
+        <div className="border-t border-slate-100 p-3">
+          {hint ? <p className="mb-2 text-xs text-slate-500">{hint}</p> : null}
+          <div className="flex items-end gap-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={2}
+              placeholder={`Mensagem para ${activeClient.nome}…`}
+              className="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleSend()
+                }
+              }}
+            />
+            <button
+              type="button"
+              disabled={busy || !draft.trim()}
+              onClick={() => void handleSend()}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#008069] text-white hover:bg-[#006e5a] disabled:opacity-50"
+              aria-label="Enviar"
+            >
+              <Send size={16} />
+            </button>
+          </div>
+          <p className="mt-2 text-center text-[11px] text-slate-400">
+            {settings.companyName} · Cloud API (fallback wa.me se não configurada)
+          </p>
+        </div>
       </div>
     </div>
   )

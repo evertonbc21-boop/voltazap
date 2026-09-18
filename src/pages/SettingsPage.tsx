@@ -6,7 +6,9 @@ import { useClients } from '../context/ClientsContext'
 import { useMessages } from '../context/MessagesContext'
 import { SEGMENTS, useSettings, type BusinessSettings, type Segment } from '../context/SettingsContext'
 import { findClientByPhone } from '../lib/phoneMatch'
+import { toWhatsAppPhone } from '../lib/whatsapp'
 import { mockInboundWhatsAppMessage } from '../services/whatsappInbound'
+import { fetchWhatsAppCloudStatus, sendWhatsAppCloudText, type WhatsAppCloudStatus } from '../services/whatsappCloud'
 import type { ReplyOutcome } from '../types'
 
 export function SettingsPage() {
@@ -24,10 +26,15 @@ export function SettingsPage() {
   const [mockText, setMockText] = useState('Quero! Pode mandar uma pizza grande. R$ 68')
   const [mockBusy, setMockBusy] = useState(false)
   const [mockHint, setMockHint] = useState('')
+  const [cloudStatus, setCloudStatus] = useState<WhatsAppCloudStatus | null>(null)
 
   useEffect(() => {
     setForm(settings)
   }, [settings])
+
+  useEffect(() => {
+    void fetchWhatsAppCloudStatus().then(setCloudStatus)
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -58,7 +65,7 @@ export function SettingsPage() {
     setTestOpen(true)
   }
 
-  function sendTest() {
+  async function sendTest() {
     const digits = testPhone.replace(/\D/g, '')
     if (digits.length < 10) {
       setTestError('Informe um WhatsApp válido com DDD.')
@@ -68,12 +75,27 @@ export function SettingsPage() {
     const formatted = formatPhone(testPhone)
     setForm((current) => ({ ...current, whatsapp: formatted }))
     setTestError('')
-    const phone = digits.startsWith('55') ? digits : `55${digits}`
-    const text = encodeURIComponent(
-      `Olá! Esta é uma mensagem de teste do VoltaZap para ${form.companyName || 'seu negócio'}. ✅`,
-    )
-    window.open(`https://wa.me/${phone}?text=${text}`, '_blank', 'noopener,noreferrer')
+    const text = `Olá! Esta é uma mensagem de teste do VoltaZap para ${form.companyName || 'seu negócio'}. ✅`
+
+    const cloud = await sendWhatsAppCloudText({ to: testPhone, text })
+    if (cloud.ok) {
+      setTestSent(true)
+      setToast('Teste enviado pela Cloud API.')
+      return
+    }
+
+    const phone = toWhatsAppPhone(testPhone)
+    if (!phone) {
+      setTestError('Telefone inválido.')
+      return
+    }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
     setTestSent(true)
+    if (cloud.fallbackSuggested) {
+      setToast('Cloud API não configurada — abriu WhatsApp Web.')
+    } else {
+      setTestError(cloud.detail || cloud.error)
+    }
   }
 
   async function runMockInbound() {
@@ -256,8 +278,9 @@ export function SettingsPage() {
           </p>
         ) : (
           <p className="rounded-xl bg-emerald-50 px-3 py-3 text-sm leading-relaxed break-words text-emerald-800">
-            Envio ainda usa WhatsApp Web (`wa.me`). O webhook da Cloud API já está preparado para receber respostas
-            automaticamente. O botão “Registrar resposta” continua como fallback.
+            {cloudStatus?.configured
+              ? 'WhatsApp Cloud API conectada: campanhas e conversas enviam pela Meta. Respostas entram em Mensagens e Resultados.'
+              : 'Defina WHATSAPP_TOKEN e WHATSAPP_PHONE_NUMBER_ID na Vercel para enviar pela API. Sem isso, o VoltaZap usa wa.me como fallback.'}
           </p>
         )}
         <p className="text-xs leading-relaxed break-words text-slate-400">
@@ -269,7 +292,20 @@ export function SettingsPage() {
         <div>
           <h3 className="text-lg font-semibold text-slate-900">WhatsApp Cloud API (Meta)</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Configure este URL no painel da Meta. O token de verificação fica só nas variáveis de ambiente da Vercel.
+            Configure o webhook na Meta e as variáveis de envio na Vercel para conversas completas (enviar + receber).
+          </p>
+          <p
+            className={`mt-3 rounded-xl px-3 py-2 text-sm font-medium ${
+              cloudStatus?.configured
+                ? 'bg-emerald-50 text-emerald-800'
+                : 'bg-amber-50 text-amber-800'
+            }`}
+          >
+            {cloudStatus == null
+              ? 'Checando conexão…'
+              : cloudStatus.configured
+                ? '✓ Envio Cloud API pronto'
+                : '⚠ Envio Cloud API pendente (faltam token e/ou phone number id)'}
           </p>
         </div>
 
@@ -285,15 +321,20 @@ export function SettingsPage() {
 
         <ul className="list-disc space-y-1 pl-5 text-sm text-slate-500">
           <li>
-            Variável <code className="rounded bg-slate-100 px-1">VERIFY_TOKEN</code> → Verify token na Meta
-            (mesma string). URL correta: <code className="rounded bg-slate-100 px-1">voltazap.vercel.app</code> (com
-            “a”).
+            <code className="rounded bg-slate-100 px-1">VERIFY_TOKEN</code> → Verify token na Meta
+            {cloudStatus?.hasVerifyToken ? ' ✓' : ''}
           </li>
           <li>
-            Opcional: <code className="rounded bg-slate-100 px-1">WHATSAPP_APP_SECRET</code> para assinatura do POST
+            <code className="rounded bg-slate-100 px-1">WHATSAPP_TOKEN</code> → token permanente da Meta
+            {cloudStatus?.hasToken ? ' ✓' : ''}
           </li>
           <li>
-            Typebot: <code className="rounded bg-slate-100 px-1">TYPEBOT_WEBHOOK_URL</code> (encaminha cada mensagem)
+            <code className="rounded bg-slate-100 px-1">WHATSAPP_PHONE_NUMBER_ID</code> → ID do número
+            {cloudStatus?.hasPhoneNumberId ? ' ✓' : ''}
+          </li>
+          <li>
+            Opcional: <code className="rounded bg-slate-100 px-1">WHATSAPP_APP_SECRET</code>
+            {cloudStatus?.hasAppSecret ? ' ✓' : ''}
           </li>
         </ul>
 
@@ -371,7 +412,7 @@ export function SettingsPage() {
             ) : null}
             <button
               type="button"
-              onClick={sendTest}
+              onClick={() => void sendTest()}
               className="mt-4 w-full rounded-xl bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
             >
               Enviar teste

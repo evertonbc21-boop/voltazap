@@ -40,13 +40,30 @@ export type IngestResult =
   | { ok: true; entry: CampaignReply; duplicate: true }
   | { ok: false; reason: string }
 
+interface OutboundInput {
+  clientId: string
+  clientName: string
+  text: string
+  fromPhone?: string
+  waMessageId?: string | null
+  source?: ReplySource
+}
+
 interface MessagesContextValue {
   replies: CampaignReply[]
   messages: SentMessage[]
   registerReply: (input: RegisterReplyInput) => CampaignReply
   ingestInboundReply: (input: IngestInboundInput) => IngestResult
+  recordOutboundMessage: (input: OutboundInput) => SentMessage
   hasWaMessage: (waMessageId: string | undefined | null) => boolean
   applyDeliveryStatus: (waMessageId: string, status: MessageStatus, phone?: string) => void
+  getConversation: (clientId: string) => Array<{
+    id: string
+    from: 'business' | 'client'
+    text: string
+    time: string
+    status?: MessageStatus
+  }>
   stats: {
     totalReplies: number
     orders: number
@@ -280,8 +297,112 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       return { ok: true, duplicate: false, entry }
     }
 
-    const applyDeliveryStatus = (_waMessageId: string, _status: MessageStatus, _phone?: string) => {
-      // Pronto para quando o envio Cloud API gravar wamid outbound.
+    const recordOutboundMessage = (input: OutboundInput): SentMessage => {
+      const latest = readPersistedState() || state
+      const date = new Date()
+      const preview =
+        input.text.length > 64 ? `${input.text.slice(0, 61)}...` : input.text || `WhatsApp · ${input.clientName}`
+      const message: SentMessage = {
+        id: input.waMessageId ? `m-${input.waMessageId}` : `m-out-${crypto.randomUUID()}`,
+        clientId: input.clientId,
+        preview,
+        status: 'enviada',
+        dateLabel: formatTodayTime(date),
+        waMessageId: input.waMessageId || undefined,
+        fromPhone: input.fromPhone,
+        source: input.source || 'whatsapp_cloud',
+        direction: 'outbound',
+      }
+      const next = {
+        replies: latest.replies,
+        messages: [message, ...latest.messages],
+      }
+      persistState(next)
+      setState(next)
+      return message
+    }
+
+    const applyDeliveryStatus = (waMessageId: string, status: MessageStatus, _phone?: string) => {
+      if (!waMessageId) return
+      const latest = readPersistedState() || state
+      const idx = latest.messages.findIndex(
+        (m) => m.waMessageId === waMessageId || m.id === `m-${waMessageId}`,
+      )
+      if (idx < 0) return
+      const messages = [...latest.messages]
+      messages[idx] = { ...messages[idx], status }
+      const next = { replies: latest.replies, messages }
+      persistState(next)
+      setState(next)
+    }
+
+    const getConversation = (clientId: string) => {
+      type Row = {
+        id: string
+        from: 'business' | 'client'
+        text: string
+        time: string
+        status?: MessageStatus
+      }
+      const rows: Row[] = []
+
+      for (const msg of state.messages) {
+        if (msg.clientId !== clientId) continue
+        if (msg.direction === 'outbound') {
+          rows.push({
+            id: msg.id,
+            from: 'business',
+            text: msg.preview,
+            time: msg.dateLabel,
+            status: msg.status,
+          })
+        } else if (msg.direction === 'inbound' && msg.reply) {
+          rows.push({
+            id: `in-${msg.id}`,
+            from: 'client',
+            text: msg.reply,
+            time: msg.dateLabel,
+            status: msg.status,
+          })
+        } else if (!msg.direction) {
+          rows.push({
+            id: msg.id,
+            from: 'business',
+            text: msg.preview,
+            time: msg.dateLabel,
+            status: msg.status,
+          })
+          if (msg.reply) {
+            rows.push({
+              id: `reply-${msg.id}`,
+              from: 'client',
+              text: msg.reply,
+              time: msg.dateLabel,
+              status: 'respondeu',
+            })
+          }
+        }
+      }
+
+      for (const reply of state.replies) {
+        if (reply.clientId !== clientId) continue
+        if (reply.source === 'meta_whatsapp' || reply.source === 'mock' || reply.direction === 'inbound') {
+          rows.push({
+            id: reply.id,
+            from: 'client',
+            text: reply.reply,
+            time: reply.datetime,
+          })
+        }
+      }
+
+      const seen = new Set<string>()
+      return rows.filter((row) => {
+        const key = `${row.from}:${row.text}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
     }
 
     const orders = state.replies.filter((r) => r.outcome === 'pedido_realizado').length
@@ -294,8 +415,10 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       messages: state.messages,
       registerReply,
       ingestInboundReply,
+      recordOutboundMessage,
       hasWaMessage,
       applyDeliveryStatus,
+      getConversation,
       stats: {
         totalReplies: state.replies.length,
         orders,

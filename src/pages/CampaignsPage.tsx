@@ -20,8 +20,10 @@ import {
 } from '../data/mock'
 import type { AudienceKey } from '../types'
 import { useClients } from '../context/ClientsContext'
+import { useMessages } from '../context/MessagesContext'
 import { useSettings } from '../context/SettingsContext'
 import { sendClientWhatsApp } from '../lib/whatsapp'
+import { sendCampaignMessages } from '../services/integrations'
 import {
   MESSAGE_VARIABLES,
   getAiSuggestions,
@@ -42,6 +44,7 @@ const MAX_MESSAGE_LENGTH = 1000
 
 export function CampaignsPage() {
   const { clients, getClient, statusCounts } = useClients()
+  const { recordOutboundMessage } = useMessages()
   const { settings } = useSettings()
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -58,6 +61,8 @@ export function CampaignsPage() {
   const [realData, setRealData] = useState(true)
   const [queue, setQueue] = useState<typeof clients>([])
   const [sendError, setSendError] = useState('')
+  const [sendBusy, setSendBusy] = useState(false)
+  const [sendProvider, setSendProvider] = useState<'meta_cloud' | 'whatsapp-web' | null>(null)
   const [scheduledAt, setScheduledAt] = useState('')
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
@@ -173,7 +178,7 @@ export function CampaignsPage() {
     }, 0)
   }
 
-  function handleSendCampaign() {
+  async function handleSendCampaign() {
     setSendError('')
     if (recipients.length === 0) {
       setSendError('Selecione pelo menos um cliente.')
@@ -183,16 +188,56 @@ export function CampaignsPage() {
       setSendError('Escolha a data e o horário do agendamento.')
       return
     }
-    const opened = sendClientWhatsApp(recipients[0], message)
-    if (!opened) {
-      setSendError('Número de WhatsApp inválido. Cadastre um telefone com DDD.')
-      return
+
+    setSendBusy(true)
+    try {
+      const result = await sendCampaignMessages({ clients: recipients, template: message })
+      setSendProvider(result.provider)
+
+      if (result.sent?.length) {
+        for (const item of result.sent) {
+          const client = recipients.find((c) => c.id === item.clientId)
+          if (!client) continue
+          recordOutboundMessage({
+            clientId: client.id,
+            clientName: client.nome,
+            text: item.text,
+            fromPhone: item.to,
+            waMessageId: item.waMessageId,
+            source: 'whatsapp_cloud',
+          })
+        }
+      }
+
+      if (result.provider === 'whatsapp-web') {
+        if (result.remaining.length > 0) {
+          setQueue(result.remaining)
+          setSendBusy(false)
+          return
+        }
+        navigate('/resultados')
+        return
+      }
+
+      if (result.error && result.remaining.length === recipients.length) {
+        setSendError(result.error)
+        setSendBusy(false)
+        return
+      }
+
+      if (result.remaining.length > 0) {
+        setQueue(result.remaining)
+        if (result.error) setSendError(`Parcial: ${result.error}`)
+        setSendBusy(false)
+        return
+      }
+
+      navigate('/resultados')
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Falha ao enviar campanha.')
+    } finally {
+      setSendBusy(false)
     }
-    if (recipients.length > 1) {
-      setQueue(recipients.slice(1))
-      return
-    }
-    navigate('/resultados')
   }
 
   return (
@@ -451,15 +496,18 @@ export function CampaignsPage() {
               </ul>
               <button
                 type="button"
-                onClick={handleSendCampaign}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark"
+                disabled={sendBusy}
+                onClick={() => void handleSendCampaign()}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark disabled:opacity-60"
               >
                 <Send size={16} />
-                Enviar campanha
+                {sendBusy ? 'Enviando…' : 'Enviar campanha'}
               </button>
               {sendError ? <p className="mt-2 text-center text-xs text-red-500">{sendError}</p> : null}
               <p className="mt-2 text-center text-xs text-slate-400">
-                O WhatsApp abre com a mensagem pronta. Confirme o envio no aplicativo. Use um número real, não o de exemplo.
+                {sendProvider === 'meta_cloud'
+                  ? 'Enviado pela WhatsApp Cloud API. Respostas entram em Mensagens e Resultados.'
+                  : 'Com Cloud API configurada, envia direto. Sem token, abre o WhatsApp Web como fallback.'}
               </p>
             </div>
           </section>
@@ -544,9 +592,13 @@ export function CampaignsPage() {
       {queue.length > 0 ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-h-[80vh] w-full max-w-md overflow-auto rounded-2xl bg-white p-5 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-900">Continuar envio no WhatsApp</h3>
+            <h3 className="text-lg font-semibold text-slate-900">
+              {sendProvider === 'meta_cloud' ? 'Continuar envio (Cloud API)' : 'Continuar envio no WhatsApp'}
+            </h3>
             <p className="mt-1 text-sm text-slate-500">
-              A primeira conversa já abriu. Envie as demais uma a uma e confirme no aplicativo.
+              {sendProvider === 'meta_cloud'
+                ? 'Alguns envios faltaram. Tente novamente ou use WhatsApp Web.'
+                : 'A primeira conversa já abriu. Envie as demais uma a uma e confirme no aplicativo.'}
             </p>
             <ul className="mt-4 space-y-2">
               {queue.map((client) => (
@@ -560,6 +612,12 @@ export function CampaignsPage() {
                     className="shrink-0 text-sm font-semibold text-brand"
                     onClick={() => {
                       sendClientWhatsApp(client, message)
+                      recordOutboundMessage({
+                        clientId: client.id,
+                        clientName: client.nome,
+                        text: personalizeMessage(message, client),
+                        source: 'manual',
+                      })
                       setQueue((current) => current.filter((item) => item.id !== client.id))
                     }}
                   >
@@ -579,7 +637,7 @@ export function CampaignsPage() {
               Concluir e ver resultados
             </button>
             <p className="mt-2 text-center text-xs text-slate-400">
-              Depois que o cliente responder no WhatsApp, use “Registrar resposta” em Resultados.
+              Respostas do WhatsApp entram automaticamente em Mensagens e Resultados.
             </p>
           </div>
         </div>
