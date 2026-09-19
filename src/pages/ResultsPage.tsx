@@ -16,9 +16,9 @@ import type { ReplyOutcome } from '../types'
 
 const OUTCOME_OPTIONS: { value: 'todos' | ReplyOutcome; label: string }[] = [
   { value: 'todos', label: 'Todos os status' },
-  { value: 'pedido_realizado', label: 'Pedido realizado' },
   { value: 'interessado', label: 'Interessado' },
-  { value: 'sem_resposta', label: 'Sem resposta' },
+  { value: 'nao_interessado', label: 'Não interessado' },
+  { value: 'nao_respondeu', label: 'Não respondeu' },
 ]
 
 export function ResultsPage() {

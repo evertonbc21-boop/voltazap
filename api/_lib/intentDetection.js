@@ -1,13 +1,10 @@
 /**
  * Heurísticas leves para intenção / status / valor.
- * Preparado para ser substituído por Typebot ou LLM depois.
- *
- * Regra: interesse em pedir ≠ pedido realizado.
- * Valor/faturamento só com confirmação real + valor explícito.
+ * Status da conversa (UI): interessado | nao_interessado | nao_respondeu
  */
 
 const DECLINE_RE =
-  /\b(não quero|nao quero|não preciso|nao preciso|agora não|agora nao|obrigad[oa],? mas não)\b/i
+  /\b(não quero|nao quero|não preciso|nao preciso|agora não|agora nao|hoje não|hoje nao|obrigad[oa],? mas não|sem interesse|não tenho interesse|nao tenho interesse)\b/i
 
 const NEGOTIATION_RE =
   /\b(desconto|promoção|promocao|promo|mais barato|parcel|combinar|negoci|talvez|depois|amanhã|amanha)\b/i
@@ -16,9 +13,9 @@ const NEGOTIATION_RE =
 const ORDER_CONFIRMED_RE =
   /\b(já pedi|ja pedi|pedido (feito|confirmado|fechado|realizado)|fechei( o pedido)?|paguei|confirma(do)?( o)? pedido|pedido ok|fechado por)\b/i
 
-/** Demonstração de interesse em pedir (ainda não é venda). */
+/** Demonstração de interesse em pedir. */
 const INTEREST_RE =
-  /\b(quero fazer um pedido|gostaria de (fazer um )?pedido|quero pedir|fazer um pedido|quero|interessad|me interessa|quanto custa|preço|preco|cardápio|cardapio|menu|manda|mandar|pode mandar|pode enviar|envia|enviar)\b/i
+  /\b(quero fazer um pedido|gostaria de (fazer um )?pedido|quero pedir|fazer um pedido|quero|interessad|me interessa|quanto custa|preço|preco|valor|cardápio|cardapio|menu|manda|mandar|pode mandar|pode enviar|envia|enviar)\b/i
 
 const VALUE_RE = /(?:r\$\s*)(\d{1,5}(?:[.,]\d{2})?)|\b(\d{1,5}[.,]\d{2})\b/gi
 
@@ -27,7 +24,7 @@ const VALUE_RE = /(?:r\$\s*)(\d{1,5}(?:[.,]\d{2})?)|\b(\d{1,5}[.,]\d{2})\b/gi
  * @returns {{
  *   intent: string,
  *   intentLabel: string,
- *   outcome: 'pedido_realizado' | 'interessado' | 'sem_resposta',
+ *   outcome: 'interessado' | 'nao_interessado' | 'nao_respondeu',
  *   orderValue?: number,
  *   conversationStatus: string,
  *   confidence: number,
@@ -38,8 +35,8 @@ export function analyzeInboundText(text = '') {
   if (!body) {
     return {
       intent: 'unknown',
-      intentLabel: 'Sem resposta',
-      outcome: 'sem_resposta',
+      intentLabel: 'Não respondeu',
+      outcome: 'nao_respondeu',
       conversationStatus: 'empty',
       confidence: 0,
     }
@@ -50,19 +47,19 @@ export function analyzeInboundText(text = '') {
   if (DECLINE_RE.test(body)) {
     return {
       intent: 'decline',
-      intentLabel: 'Sem resposta',
-      outcome: 'sem_resposta',
+      intentLabel: 'Não interessado',
+      outcome: 'nao_interessado',
       conversationStatus: 'declined',
       confidence: 0.7,
     }
   }
 
-  // Pedido realizado só com confirmação explícita E valor
+  // Pedido confirmado com valor = interessado (comprou) + orderValue para faturamento
   if (ORDER_CONFIRMED_RE.test(body) && orderValue != null) {
     return {
       intent: 'order_confirmed',
-      intentLabel: 'Pedido realizado',
-      outcome: 'pedido_realizado',
+      intentLabel: 'Interessado',
+      outcome: 'interessado',
       orderValue,
       conversationStatus: 'order_confirmed',
       confidence: 0.9,
@@ -74,16 +71,17 @@ export function analyzeInboundText(text = '') {
       intent: 'interest',
       intentLabel: 'Interessado',
       outcome: 'interessado',
+      orderValue,
       conversationStatus: 'interested',
       confidence: 0.75,
     }
   }
 
-  // Qualquer outra resposta de texto = respondeu / interessado (sem inventar pedido)
   return {
     intent: 'reply',
     intentLabel: 'Interessado',
     outcome: 'interessado',
+    orderValue,
     conversationStatus: 'replied',
     confidence: 0.45,
   }

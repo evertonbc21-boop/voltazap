@@ -5,9 +5,9 @@ import { useMessages } from '../context/MessagesContext'
 import type { ReplyOutcome } from '../types'
 
 const OUTCOMES: { value: ReplyOutcome; label: string }[] = [
-  { value: 'pedido_realizado', label: 'Pedido realizado' },
   { value: 'interessado', label: 'Interessado' },
-  { value: 'sem_resposta', label: 'Sem resposta' },
+  { value: 'nao_interessado', label: 'Não interessado' },
+  { value: 'nao_respondeu', label: 'Não respondeu' },
 ]
 
 interface RegisterReplyModalProps {
@@ -56,16 +56,16 @@ export function RegisterReplyModal({
       setError('Selecione um cliente.')
       return
     }
-    if (outcome !== 'sem_resposta' && !reply.trim()) {
+    if (outcome !== 'nao_respondeu' && !reply.trim()) {
       setError('Digite a resposta do cliente.')
       return
     }
 
     let value: number | undefined
-    if (outcome === 'pedido_realizado') {
+    if (outcome === 'interessado' && orderValue.trim()) {
       const parsed = Number(orderValue.replace(',', '.'))
       if (!Number.isFinite(parsed) || parsed <= 0) {
-        setError('Informe o valor do pedido.')
+        setError('Informe um valor de pedido válido.')
         return
       }
       value = parsed
@@ -74,7 +74,7 @@ export function RegisterReplyModal({
     registerReply({
       clientId: client.id,
       clientName: client.nome,
-      reply: reply.trim() || 'Sem resposta',
+      reply: reply.trim() || 'Não respondeu',
       outcome,
       orderValue: value,
       messagePreview,
@@ -93,8 +93,7 @@ export function RegisterReplyModal({
           <div>
             <h3 className="text-lg font-bold text-slate-900">Registrar resposta</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Como o recebimento automático pela Meta pode falhar em algum caso, registre aqui a resposta do cliente
-              para aparecer nos relatórios. O fluxo principal é o webhook automático.
+              Registre a resposta do cliente para aparecer nos relatórios.
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Fechar">
@@ -124,7 +123,7 @@ export function RegisterReplyModal({
             </label>
 
             <label className="block text-sm font-medium text-slate-600">
-              Status da conversa
+              Status
               <select
                 value={outcome}
                 onChange={(e) => setOutcome(e.target.value as ReplyOutcome)}
@@ -138,7 +137,7 @@ export function RegisterReplyModal({
               </select>
             </label>
 
-            {outcome !== 'sem_resposta' ? (
+            {outcome !== 'nao_respondeu' ? (
               <label className="block text-sm font-medium text-slate-600">
                 Resposta do cliente
                 <textarea
@@ -151,9 +150,9 @@ export function RegisterReplyModal({
               </label>
             ) : null}
 
-            {outcome === 'pedido_realizado' ? (
+            {outcome === 'interessado' ? (
               <label className="block text-sm font-medium text-slate-600">
-                Valor do pedido (R$)
+                Valor do pedido (R$) <span className="font-normal text-slate-400">opcional</span>
                 <input
                   value={orderValue}
                   onChange={(e) => setOrderValue(e.target.value)}

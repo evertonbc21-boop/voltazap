@@ -76,10 +76,11 @@ interface MessagesContextValue {
 const MessagesContext = createContext<MessagesContextValue | null>(null)
 
 function normalizeReplyOutcome(outcome: string | undefined): ReplyOutcome {
-  if (outcome === 'pedido_realizado' || outcome === 'interessado' || outcome === 'sem_resposta') {
+  if (outcome === 'interessado' || outcome === 'nao_interessado' || outcome === 'nao_respondeu') {
     return outcome
   }
-  // Status legado removido da UI
+  if (outcome === 'pedido_realizado' || outcome === 'em_negociacao') return 'interessado'
+  if (outcome === 'sem_resposta') return 'nao_respondeu'
   return 'interessado'
 }
 
@@ -146,13 +147,17 @@ function formatTodayTime(date = new Date()) {
 }
 
 function buildReplyEntry(input: IngestInboundInput, date: Date): CampaignReply {
-  const replyText = input.reply.trim() || 'Sem resposta'
+  const replyText = input.reply.trim() || 'Não respondeu'
+  const outcome = normalizeReplyOutcome(input.outcome)
   return {
     id: input.waMessageId || `r-${crypto.randomUUID()}`,
     clientId: input.clientId,
     reply: replyText,
-    outcome: input.outcome,
-    orderValue: input.outcome === 'pedido_realizado' ? input.orderValue : undefined,
+    outcome,
+    orderValue:
+      outcome === 'interessado' && typeof input.orderValue === 'number' && input.orderValue > 0
+        ? input.orderValue
+        : undefined,
     datetime: formatNowLabel(date),
     source: input.source || 'manual',
     intent: input.intent,
@@ -165,12 +170,13 @@ function buildReplyEntry(input: IngestInboundInput, date: Date): CampaignReply {
     text: replyText,
     type: input.messageType || 'text',
     direction: input.source && input.source !== 'manual' ? 'inbound' : undefined,
-    status: input.outcome === 'sem_resposta' ? 'received' : 'respondeu',
+    status: outcome === 'nao_respondeu' ? 'received' : 'respondeu',
   }
 }
 
 function buildMessageEntry(input: IngestInboundInput, date: Date): SentMessage {
   const replyText = input.reply.trim()
+  const outcome = normalizeReplyOutcome(input.outcome)
   const preview =
     input.messagePreview?.trim() ||
     (input.source && input.source !== 'manual'
@@ -181,9 +187,9 @@ function buildMessageEntry(input: IngestInboundInput, date: Date): SentMessage {
     id: input.waMessageId ? `m-${input.waMessageId}` : `m-${crypto.randomUUID()}`,
     clientId: input.clientId,
     preview: preview.length > 64 ? `${preview.slice(0, 61)}...` : preview,
-    status: input.outcome === 'sem_resposta' ? 'received' : 'respondeu',
+    status: outcome === 'nao_respondeu' ? 'received' : 'respondeu',
     dateLabel: formatTodayTime(date),
-    reply: input.outcome === 'sem_resposta' ? undefined : replyText || undefined,
+    reply: outcome === 'nao_respondeu' ? undefined : replyText || undefined,
     waMessageId: input.waMessageId,
     fromPhone: input.fromPhone,
     source: input.source,
@@ -423,9 +429,9 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       })
     }
 
-    const orders = state.replies.filter((r) => r.outcome === 'pedido_realizado').length
+    const orders = state.replies.filter((r) => (r.orderValue ?? 0) > 0).length
     const revenue = state.replies.reduce((sum, r) => sum + (r.orderValue ?? 0), 0)
-    const answered = state.replies.filter((r) => r.outcome !== 'sem_resposta').length
+    const answered = state.replies.filter((r) => r.outcome !== 'nao_respondeu').length
     const base = Math.max(state.replies.length, 1)
 
     return {

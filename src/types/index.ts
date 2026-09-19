@@ -13,9 +13,9 @@ export type MessageStatus =
   | 'received'
 
 export type ReplyOutcome =
-  | 'pedido_realizado'
   | 'interessado'
-  | 'sem_resposta'
+  | 'nao_interessado'
+  | 'nao_respondeu'
 
 export type ReplySource = 'manual' | 'meta_whatsapp' | 'whatsapp_cloud' | 'mock'
 

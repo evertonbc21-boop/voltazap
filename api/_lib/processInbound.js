@@ -18,7 +18,7 @@ export async function processWhatsAppWebhook(body, options = {}) {
   for (const msg of messages) {
     const analysis = analyzeInboundText(msg.text)
     const orderValue =
-      analysis.outcome === 'pedido_realizado' ? analysis.orderValue : undefined
+      analysis.outcome === 'interessado' ? analysis.orderValue : undefined
     const fromPhone = normalizePhone(msg.fromPhone)
 
     console.log('whatsapp webhook message received', {
@@ -70,7 +70,7 @@ export async function processWhatsAppWebhook(body, options = {}) {
         conversationStatus: analysis.conversationStatus,
         confidence: analysis.confidence,
         typebotReady: true,
-        pedidoRealizado: analysis.outcome === 'pedido_realizado',
+        pedidoRealizado: Boolean(orderValue),
         valorPedido: orderValue ?? null,
         statusConversa: analysis.conversationStatus,
       },
@@ -125,7 +125,7 @@ export async function processWhatsAppWebhook(body, options = {}) {
       analysis: {
         intent: 'delivery_status',
         intentLabel: st.status,
-        outcome: 'sem_resposta',
+        outcome: 'nao_respondeu',
         conversationStatus: st.status,
         confidence: 1,
         typebotReady: false,

@@ -31,13 +31,18 @@ export function MessageStatusBadge({ status }: { status: MessageStatus }) {
 }
 
 const outcomeMap: Record<ReplyOutcome, { label: string; className: string; dot: string }> = {
-  pedido_realizado: { label: 'Pedido realizado', className: 'text-emerald-600 bg-emerald-50', dot: 'bg-emerald-500' },
-  interessado: { label: 'Interessado', className: 'text-sky-600 bg-sky-50', dot: 'bg-sky-500' },
-  sem_resposta: { label: 'Sem resposta', className: 'text-slate-600 bg-slate-100', dot: 'bg-slate-400' },
+  interessado: { label: 'Interessado', className: 'text-emerald-700 bg-emerald-50', dot: 'bg-emerald-500' },
+  nao_interessado: { label: 'Não interessado', className: 'text-red-600 bg-red-50', dot: 'bg-red-500' },
+  nao_respondeu: { label: 'Não respondeu', className: 'text-slate-600 bg-slate-100', dot: 'bg-slate-400' },
 }
 
 export function OutcomeBadge({ outcome }: { outcome: ReplyOutcome | string }) {
-  const normalized = outcome === 'em_negociacao' ? 'interessado' : outcome
+  const normalized =
+    outcome === 'pedido_realizado' || outcome === 'em_negociacao'
+      ? 'interessado'
+      : outcome === 'sem_resposta'
+        ? 'nao_respondeu'
+        : outcome
   const meta = outcomeMap[normalized as ReplyOutcome] ?? outcomeMap.interessado
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.className}`}>

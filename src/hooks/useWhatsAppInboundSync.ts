@@ -85,9 +85,16 @@ async function processEvents(eventsRaw: InboundWhatsAppEvent[]) {
       client = h.ensureClient({ phone, name: event.contactName }).client
     }
 
-    const outcome = (event.analysis?.outcome || 'interessado') as ReplyOutcome
+    const rawOutcome = (event.analysis?.outcome || 'interessado') as string
+    const outcome = (
+      rawOutcome === 'pedido_realizado' || rawOutcome === 'em_negociacao'
+        ? 'interessado'
+        : rawOutcome === 'sem_resposta'
+          ? 'nao_respondeu'
+          : rawOutcome
+    ) as ReplyOutcome
     const orderValue =
-      outcome === 'pedido_realizado'
+      outcome === 'interessado'
         ? event.analysis?.orderValue ?? event.analysis?.valorPedido ?? undefined
         : undefined
 
