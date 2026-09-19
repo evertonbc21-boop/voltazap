@@ -15,7 +15,7 @@ import {
 import {
   AUDIENCE_OPTIONS,
   BUSINESS,
-  PIZZA_PROMO_IMAGE,
+  CAMPAIGN_PROMO_IMAGE,
   personalizeMessage,
 } from '../data/mock'
 import type { AudienceKey } from '../types'
@@ -537,7 +537,7 @@ export function CampaignsPage() {
             <div className="wa-pattern min-h-[420px] p-3">
               <div className="ml-auto max-w-[85%] rounded-xl rounded-tr-sm bg-[#d9fdd3] p-3 text-sm text-slate-800 shadow">
                 <p className="whitespace-pre-wrap">{realData ? previewText : message}</p>
-                <img src={PIZZA_PROMO_IMAGE} alt="Imagem promocional" className="mt-3 h-40 w-full rounded-lg object-cover" />
+                <img src={CAMPAIGN_PROMO_IMAGE} alt="Imagem promocional" className="mt-3 h-40 w-full rounded-lg object-cover" />
                 <p className="mt-1 text-right text-[10px] text-slate-400">10:24</p>
               </div>
             </div>

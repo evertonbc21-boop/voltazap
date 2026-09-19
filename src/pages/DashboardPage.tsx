@@ -9,8 +9,8 @@ import {
 } from 'lucide-react'
 import {
   BUSINESS,
+  CAMPAIGN_PROMO_IMAGE,
   DEFAULT_MESSAGE,
-  PIZZA_IMAGE,
   formatCurrency,
 } from '../data/mock'
 import { Avatar, ClientCell } from '../components/ui/Avatar'
@@ -167,14 +167,14 @@ export function DashboardPage() {
             </Link>
           </div>
           <img
-            src={PIZZA_IMAGE}
-            alt="Pizza"
+            src={CAMPAIGN_PROMO_IMAGE}
+            alt="Negócios locais"
             className="pointer-events-none mt-6 h-40 w-full rounded-2xl object-cover xl:absolute xl:right-4 xl:top-6 xl:mt-0 xl:h-44 xl:w-56"
           />
           <p className="absolute right-8 top-4 hidden rotate-[-8deg] text-xs font-semibold text-white xl:block">
             Mais clientes.
             <br />
-            Mais pizzas.
+            Mais vendas.
           </p>
         </article>
       </section>

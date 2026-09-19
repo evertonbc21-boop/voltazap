@@ -296,11 +296,13 @@ Que tal repetir seu pedido hoje?
 
 Estamos te esperando! ❤️`
 
-export const PIZZA_IMAGE =
-  'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80'
+export const CAMPAIGN_PROMO_IMAGE = '/campaign-promo.jpg'
 
-export const PIZZA_PROMO_IMAGE =
-  'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=800&q=80'
+/** @deprecated use CAMPAIGN_PROMO_IMAGE */
+export const PIZZA_IMAGE = CAMPAIGN_PROMO_IMAGE
+
+/** @deprecated use CAMPAIGN_PROMO_IMAGE */
+export const PIZZA_PROMO_IMAGE = CAMPAIGN_PROMO_IMAGE
 
 export const recentMessages: SentMessage[] = [
   {
