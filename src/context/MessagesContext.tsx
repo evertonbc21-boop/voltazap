@@ -75,13 +75,31 @@ interface MessagesContextValue {
 
 const MessagesContext = createContext<MessagesContextValue | null>(null)
 
+function normalizeReplyOutcome(outcome: string | undefined): ReplyOutcome {
+  if (outcome === 'pedido_realizado' || outcome === 'interessado' || outcome === 'sem_resposta') {
+    return outcome
+  }
+  // Status legado removido da UI
+  return 'interessado'
+}
+
+function normalizeReplies(replies: CampaignReply[]): CampaignReply[] {
+  return replies.map((reply) => ({
+    ...reply,
+    outcome: normalizeReplyOutcome(reply.outcome),
+  }))
+}
+
 function loadState(): StoredState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { replies: seedReplies, messages: seedMessages }
     const parsed = JSON.parse(raw) as Partial<StoredState>
     return {
-      replies: Array.isArray(parsed.replies) && parsed.replies.length > 0 ? parsed.replies : seedReplies,
+      replies:
+        Array.isArray(parsed.replies) && parsed.replies.length > 0
+          ? normalizeReplies(parsed.replies)
+          : seedReplies,
       messages: Array.isArray(parsed.messages) && parsed.messages.length > 0 ? parsed.messages : seedMessages,
     }
   } catch {
@@ -96,7 +114,7 @@ function readPersistedState(): StoredState | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<StoredState>
     if (!parsed || !Array.isArray(parsed.replies) || !Array.isArray(parsed.messages)) return null
-    return { replies: parsed.replies, messages: parsed.messages }
+    return { replies: normalizeReplies(parsed.replies), messages: parsed.messages }
   } catch {
     return null
   }

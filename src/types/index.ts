@@ -15,7 +15,6 @@ export type MessageStatus =
 export type ReplyOutcome =
   | 'pedido_realizado'
   | 'interessado'
-  | 'em_negociacao'
   | 'sem_resposta'
 
 export type ReplySource = 'manual' | 'meta_whatsapp' | 'whatsapp_cloud' | 'mock'

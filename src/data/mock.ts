@@ -380,7 +380,7 @@ export const campaignReplies: CampaignReply[] = [
     id: 'r5',
     clientId: 'c5',
     reply: 'Qual o valor da grande?',
-    outcome: 'em_negociacao',
+    outcome: 'interessado',
     datetime: '13/09 12:34',
   },
 ]

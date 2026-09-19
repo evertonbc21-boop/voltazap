@@ -7,7 +7,6 @@ import type { ReplyOutcome } from '../types'
 const OUTCOMES: { value: ReplyOutcome; label: string }[] = [
   { value: 'pedido_realizado', label: 'Pedido realizado' },
   { value: 'interessado', label: 'Interessado' },
-  { value: 'em_negociacao', label: 'Em negociação' },
   { value: 'sem_resposta', label: 'Sem resposta' },
 ]
 

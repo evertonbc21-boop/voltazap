@@ -18,7 +18,6 @@ const OUTCOME_OPTIONS: { value: 'todos' | ReplyOutcome; label: string }[] = [
   { value: 'todos', label: 'Todos os status' },
   { value: 'pedido_realizado', label: 'Pedido realizado' },
   { value: 'interessado', label: 'Interessado' },
-  { value: 'em_negociacao', label: 'Em negociação' },
   { value: 'sem_resposta', label: 'Sem resposta' },
 ]
 

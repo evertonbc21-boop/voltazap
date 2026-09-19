@@ -27,7 +27,7 @@ const VALUE_RE = /(?:r\$\s*)(\d{1,5}(?:[.,]\d{2})?)|\b(\d{1,5}[.,]\d{2})\b/gi
  * @returns {{
  *   intent: string,
  *   intentLabel: string,
- *   outcome: 'pedido_realizado' | 'interessado' | 'em_negociacao' | 'sem_resposta',
+ *   outcome: 'pedido_realizado' | 'interessado' | 'sem_resposta',
  *   orderValue?: number,
  *   conversationStatus: string,
  *   confidence: number,
@@ -69,17 +69,7 @@ export function analyzeInboundText(text = '') {
     }
   }
 
-  if (NEGOTIATION_RE.test(body)) {
-    return {
-      intent: 'negotiation',
-      intentLabel: 'Em negociação',
-      outcome: 'em_negociacao',
-      conversationStatus: 'negotiating',
-      confidence: 0.65,
-    }
-  }
-
-  if (INTEREST_RE.test(body)) {
+  if (NEGOTIATION_RE.test(body) || INTEREST_RE.test(body)) {
     return {
       intent: 'interest',
       intentLabel: 'Interessado',
