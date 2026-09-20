@@ -243,7 +243,6 @@ export function DashboardPage() {
               </div>
             </div>
           </div>
-          <p className="mt-4 text-sm font-semibold text-brand">Simples. Direto. E funciona. ❤️</p>
         </article>
       </section>
     </div>
