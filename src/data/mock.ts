@@ -411,25 +411,25 @@ export const AUDIENCE_OPTIONS: {
     key: 'proxima_compra',
     title: 'Próxima compra',
     countLabel: `${statusCounts.proxima_compra} clientes`,
-    description: 'Clientes que estão chegando na hora de comprar novamente.',
+    description: 'Clientes que estão próximos do período habitual de nova compra.',
   },
   {
     key: 'atrasado',
-    title: 'Atrasados',
+    title: 'Compra atrasada',
     countLabel: `${statusCounts.atrasado} clientes`,
-    description: 'Clientes que já deveriam ter comprado.',
+    description: 'Clientes que já passaram do período habitual de compra.',
   },
   {
     key: 'muito_tempo',
-    title: 'Muito tempo sem comprar',
+    title: 'Inativos',
     countLabel: `${statusCounts.muito_tempo} clientes`,
-    description: 'Clientes inativos há mais de 60 dias.',
+    description: 'Clientes que não compram há mais de 60 dias.',
   },
   {
     key: 'personalizado',
-    title: 'Personalizado',
+    title: 'Selecionar clientes',
     countLabel: 'Selecionar',
-    description: 'Escolha manualmente os clientes.',
+    description: 'Escolha manualmente quem receberá a campanha.',
   },
 ]
 

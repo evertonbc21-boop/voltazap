@@ -34,10 +34,10 @@ import {
 import { suggestCampaignMessage, type AiSuggestProvider } from '../services/aiSuggest'
 
 const audienceIcons: Record<AudienceKey, string> = {
-  proxima_compra: '⏰',
+  proxima_compra: '🕐',
   atrasado: '⚠️',
   muito_tempo: '😴',
-  personalizado: '👤',
+  personalizado: '👥',
 }
 
 const MAX_MESSAGE_LENGTH = 1000
