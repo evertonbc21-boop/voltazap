@@ -26,12 +26,14 @@ import { sendCampaignMessages } from '../services/integrations'
 import {
   MESSAGE_VARIABLES,
   getAiSuggestions,
+  getCampaignDisplayName,
   getMessageTemplates,
   getSegmentEmoji,
   getSegmentProductLabel,
   type MessageMode,
 } from '../data/messageTemplates'
 import { suggestCampaignMessage, type AiSuggestProvider } from '../services/aiSuggest'
+import { usePlan } from '../context/PlanContext'
 
 const audienceIcons: Record<AudienceKey, string> = {
   proxima_compra: '🕐',
@@ -46,6 +48,7 @@ export function CampaignsPage() {
   const { clients, getClient, statusCounts } = useClients()
   const { recordOutboundMessage } = useMessages()
   const { settings } = useSettings()
+  const { account } = usePlan()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const preselectedId = params.get('clientId')
@@ -111,7 +114,26 @@ export function CampaignsPage() {
   }, [audience, clients, selectedIds])
 
   const messageModeLabel =
-    messageMode === 'ai' ? 'Sugestão da IA' : messageMode === 'template' ? 'Modelo escolhido' : 'Personalizada'
+    messageMode === 'ai' ? 'Personalizada pela IA' : messageMode === 'template' ? 'Modelo escolhido' : 'Personalizada'
+
+  const campaignName = getCampaignDisplayName(settings.segment)
+  const audienceOption = AUDIENCE_OPTIONS.find((option) => option.key === audience)
+  const audienceSummary = `${audienceOption?.title ?? 'Público'} (${audienceCount} ${
+    audienceCount === 1 ? 'cliente' : 'clientes'
+  })`
+  const sentByLabel = `${account?.nome || settings.companyName || BUSINESS.company} (Você)`
+  const sendAtLabel = sendNow
+    ? 'Ao enviar'
+    : scheduledAt
+      ? new Date(scheduledAt).toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'Agendar (definir data)'
+  const finishedAtLabel = 'Após o envio'
 
   function applyMessage(next: string, mode: MessageMode, templateId: string | null = null) {
     setMessage(next.slice(0, MAX_MESSAGE_LENGTH))
@@ -487,31 +509,41 @@ export function CampaignsPage() {
 
             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
               <h3 className="text-lg font-semibold text-slate-800">Resumo da campanha</h3>
-              <ul className="mt-4 space-y-3 text-sm">
-                <li className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-slate-500">
-                    <Users size={16} className="text-emerald-500" />
-                    Público selecionado
-                  </span>
-                  <strong>
-                    {audienceCount} {audienceCount === 1 ? 'cliente' : 'clientes'}
-                  </strong>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-slate-500">
-                    <Sparkles size={16} className="text-violet-500" />
-                    Mensagem
-                  </span>
-                  <strong>{messageModeLabel}</strong>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-slate-500">
+              <dl className="mt-4 space-y-3 text-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-slate-400">Nome da campanha</dt>
+                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{campaignName}</dd>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-slate-400">Público</dt>
+                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{audienceSummary}</dd>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-slate-400">Mensagem</dt>
+                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{messageModeLabel}</dd>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-slate-400">Enviada em</dt>
+                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{sendAtLabel}</dd>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-slate-400">Finalizada em</dt>
+                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{finishedAtLabel}</dd>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-slate-400">Enviada por</dt>
+                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{sentByLabel}</dd>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="flex items-center gap-2 text-slate-400">
                     <Wallet size={16} className="text-emerald-500" />
                     Custo estimado
-                  </span>
-                  <strong>{audienceCount} créditos</strong>
-                </li>
-              </ul>
+                  </dt>
+                  <dd className="font-semibold text-slate-800">
+                    {audienceCount} {audienceCount === 1 ? 'crédito' : 'créditos'}
+                  </dd>
+                </div>
+              </dl>
               <button
                 type="button"
                 disabled={sendBusy}
