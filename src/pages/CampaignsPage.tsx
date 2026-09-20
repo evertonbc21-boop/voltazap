@@ -608,95 +608,95 @@ export function CampaignsPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-800">Resumo da campanha</h3>
-              <dl className="mt-4 space-y-3 text-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="text-slate-400">Nome da campanha</dt>
-                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{campaignName}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="text-slate-400">Público</dt>
-                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{audienceSummary}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="text-slate-400">Mensagem</dt>
-                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{messageModeLabel}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="text-slate-400">Precisa ser iniciada em</dt>
-                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{startedAtLabel}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="text-slate-400">Finalizada em</dt>
-                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{finishedAtLabel}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="text-slate-400">Enviada por</dt>
-                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{sentByLabel}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="flex items-center gap-2 text-slate-400">
-                    <Wallet size={16} className="text-emerald-500" />
-                    Custo estimado
-                  </dt>
-                  <dd className="font-semibold text-slate-800">
-                    {audienceCount} {audienceCount === 1 ? 'crédito' : 'créditos'}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-6 grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  disabled={sendBusy}
-                  onClick={handleReviewCampaign}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
-                >
-                  Revisar campanha
-                </button>
-                <button
-                  type="button"
-                  disabled={sendBusy}
-                  onClick={() => void handleSendCampaign()}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3 py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark disabled:opacity-60"
-                >
-                  <Send size={16} />
-                  {sendBusy ? 'Enviando…' : 'Enviar campanha'}
-                </button>
+            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-semibold text-slate-800">Prévia da mensagem</h3>
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  Ver com dados reais
+                  <span
+                    onClick={() => setRealData((v) => !v)}
+                    className={`relative h-5 w-9 cursor-pointer rounded-full ${realData ? 'bg-brand' : 'bg-slate-300'}`}
+                  >
+                    <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${realData ? 'left-4' : 'left-0.5'}`} />
+                  </span>
+                </label>
               </div>
-              {sendError ? <p className="mt-2 text-center text-xs text-red-500">{sendError}</p> : null}
+              <div className="overflow-hidden rounded-2xl border border-slate-200">
+                <div className="flex items-center gap-3 bg-[#008069] px-3 py-2.5 text-white">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-400 text-sm">{segmentEmoji}</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">{settings.companyName || BUSINESS.company}</p>
+                    <p className="text-[11px] text-white/80">online</p>
+                  </div>
+                </div>
+                <div className="wa-pattern min-h-[280px] p-3">
+                  <div className="ml-auto max-w-[85%] rounded-xl rounded-tr-sm bg-[#d9fdd3] p-3 text-sm text-slate-800 shadow">
+                    <p className="whitespace-pre-wrap">{realData ? previewText : message}</p>
+                    <p className="mt-1 text-right text-[10px] text-slate-400">10:24</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </div>
 
-        <aside className="xl:sticky xl:top-6 h-fit rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-slate-800">Prévia da mensagem</h3>
-            <label className="flex items-center gap-2 text-xs text-slate-500">
-              Ver com dados reais
-              <span
-                onClick={() => setRealData((v) => !v)}
-                className={`relative h-5 w-9 cursor-pointer rounded-full ${realData ? 'bg-brand' : 'bg-slate-300'}`}
-              >
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${realData ? 'left-4' : 'left-0.5'}`} />
-              </span>
-            </label>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-slate-200">
-            <div className="flex items-center gap-3 bg-[#008069] px-3 py-2.5 text-white">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-400 text-sm">{segmentEmoji}</div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">{settings.companyName || BUSINESS.company}</p>
-                <p className="text-[11px] text-white/80">online</p>
-              </div>
+        <aside className="xl:sticky xl:top-6 h-fit rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-slate-800">Resumo da campanha</h3>
+          <dl className="mt-4 space-y-3 text-sm">
+            <div className="flex items-start justify-between gap-4">
+              <dt className="text-slate-400">Nome da campanha</dt>
+              <dd className="max-w-[60%] text-right font-semibold text-slate-800">{campaignName}</dd>
             </div>
-            <div className="wa-pattern min-h-[420px] p-3">
-              <div className="ml-auto max-w-[85%] rounded-xl rounded-tr-sm bg-[#d9fdd3] p-3 text-sm text-slate-800 shadow">
-                <p className="whitespace-pre-wrap">{realData ? previewText : message}</p>
-                <p className="mt-1 text-right text-[10px] text-slate-400">10:24</p>
-              </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="text-slate-400">Público</dt>
+              <dd className="max-w-[60%] text-right font-semibold text-slate-800">{audienceSummary}</dd>
             </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="text-slate-400">Mensagem</dt>
+              <dd className="max-w-[60%] text-right font-semibold text-slate-800">{messageModeLabel}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="text-slate-400">Precisa ser iniciada em</dt>
+              <dd className="max-w-[60%] text-right font-semibold text-slate-800">{startedAtLabel}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="text-slate-400">Finalizada em</dt>
+              <dd className="max-w-[60%] text-right font-semibold text-slate-800">{finishedAtLabel}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="text-slate-400">Enviada por</dt>
+              <dd className="max-w-[60%] text-right font-semibold text-slate-800">{sentByLabel}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <dt className="flex items-center gap-2 text-slate-400">
+                <Wallet size={16} className="text-emerald-500" />
+                Custo estimado
+              </dt>
+              <dd className="font-semibold text-slate-800">
+                {audienceCount} {audienceCount === 1 ? 'crédito' : 'créditos'}
+              </dd>
+            </div>
+          </dl>
+          <div className="mt-6 grid gap-2">
+            <button
+              type="button"
+              disabled={sendBusy}
+              onClick={handleReviewCampaign}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
+            >
+              Revisar campanha
+            </button>
+            <button
+              type="button"
+              disabled={sendBusy}
+              onClick={() => void handleSendCampaign()}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3 py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark disabled:opacity-60"
+            >
+              <Send size={16} />
+              {sendBusy ? 'Enviando…' : 'Enviar campanha'}
+            </button>
           </div>
+          {sendError ? <p className="mt-2 text-center text-xs text-red-500">{sendError}</p> : null}
         </aside>
       </div>
 
