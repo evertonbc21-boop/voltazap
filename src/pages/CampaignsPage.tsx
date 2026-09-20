@@ -67,6 +67,7 @@ export function CampaignsPage() {
   const [sendProvider, setSendProvider] = useState<'meta_cloud' | 'whatsapp-web' | null>(null)
   const [scheduledAt, setScheduledAt] = useState('')
   const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const aiRequestId = useRef(0)
@@ -239,13 +240,16 @@ export function CampaignsPage() {
     setSendError('')
     if (recipients.length === 0) {
       setSendError('Selecione pelo menos um cliente.')
+      setReviewOpen(false)
       return
     }
     if (!sendNow && !scheduledAt) {
       setSendError('Escolha a data e o horário do agendamento.')
+      setReviewOpen(false)
       return
     }
 
+    setReviewOpen(false)
     setSendBusy(true)
     try {
       const result = await sendCampaignMessages({
@@ -565,15 +569,47 @@ export function CampaignsPage() {
                   </dd>
                 </div>
               </dl>
-              <button
-                type="button"
-                disabled={sendBusy}
-                onClick={() => void handleSendCampaign()}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark disabled:opacity-60"
-              >
-                <Send size={16} />
-                {sendBusy ? 'Enviando…' : 'Enviar campanha'}
-              </button>
+              <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={sendBusy}
+                  onClick={() => {
+                    setSendError('')
+                    if (recipients.length === 0) {
+                      setSendError('Selecione pelo menos um cliente.')
+                      return
+                    }
+                    if (!sendNow && !scheduledAt) {
+                      setSendError('Escolha a data e o horário do agendamento.')
+                      return
+                    }
+                    setReviewOpen(true)
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
+                >
+                  Revisar campanha
+                </button>
+                <button
+                  type="button"
+                  disabled={sendBusy}
+                  onClick={() => {
+                    setSendError('')
+                    if (recipients.length === 0) {
+                      setSendError('Selecione pelo menos um cliente.')
+                      return
+                    }
+                    if (!sendNow && !scheduledAt) {
+                      setSendError('Escolha a data e o horário do agendamento.')
+                      return
+                    }
+                    setReviewOpen(true)
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3 py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark disabled:opacity-60"
+                >
+                  <Send size={16} />
+                  {sendBusy ? 'Enviando…' : 'Enviar campanha'}
+                </button>
+              </div>
               {sendError ? <p className="mt-2 text-center text-xs text-red-500">{sendError}</p> : null}
             </div>
           </section>
@@ -609,6 +645,99 @@ export function CampaignsPage() {
           </div>
         </aside>
       </div>
+
+      {reviewOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setReviewOpen(false)}>
+          <div
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Revisar campanha</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Confira os dados e a mensagem antes de enviar.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReviewOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                aria-label="Fechar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <dl className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm">
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-slate-400">Nome da campanha</dt>
+                <dd className="max-w-[60%] text-right font-semibold text-slate-800">{campaignName}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-slate-400">Público</dt>
+                <dd className="max-w-[60%] text-right font-semibold text-slate-800">{audienceSummary}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-slate-400">Mensagem</dt>
+                <dd className="max-w-[60%] text-right font-semibold text-slate-800">{messageModeLabel}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-slate-400">Precisa ser iniciada em</dt>
+                <dd className="max-w-[60%] text-right font-semibold text-slate-800">{startedAtLabel}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-slate-400">Finalizada em</dt>
+                <dd className="max-w-[60%] text-right font-semibold text-slate-800">{finishedAtLabel}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-slate-400">Enviada por</dt>
+                <dd className="max-w-[60%] text-right font-semibold text-slate-800">{sentByLabel}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-slate-400">Custo estimado</dt>
+                <dd className="font-semibold text-slate-800">
+                  {audienceCount} {audienceCount === 1 ? 'crédito' : 'créditos'}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+              <div className="flex items-center gap-3 bg-[#008069] px-3 py-2.5 text-white">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-400 text-sm">{segmentEmoji}</div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{settings.companyName || BUSINESS.company}</p>
+                  <p className="text-[11px] text-white/80">Prévia da mensagem</p>
+                </div>
+              </div>
+              <div className="wa-pattern p-3">
+                <div className="ml-auto max-w-[90%] rounded-xl rounded-tr-sm bg-[#d9fdd3] p-3 text-sm text-slate-800 shadow">
+                  <p className="whitespace-pre-wrap">{previewText || message}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setReviewOpen(false)}
+                className="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                disabled={sendBusy}
+                onClick={() => void handleSendCampaign()}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
+              >
+                <Send size={16} />
+                {sendBusy ? 'Enviando…' : 'Confirmar envio'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {templatesOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTemplatesOpen(false)}>
