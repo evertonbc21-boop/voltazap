@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export function LoginPage() {
-  const navigate = useNavigate()
   const { signIn, user, loading, configured } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -28,7 +27,7 @@ export function LoginPage() {
       setError(authError)
       return
     }
-    navigate('/')
+    window.location.assign('/')
   }
 
   return (

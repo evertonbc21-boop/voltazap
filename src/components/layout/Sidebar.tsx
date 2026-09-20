@@ -101,7 +101,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 {segmentEmoji}
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">{settings.companyName || BUSINESS.company}</p>
+                <p className="text-sm font-semibold text-white">{settings.companyName || 'Seu negócio'}</p>
                 <p className="text-xs text-slate-400">
                   {settings.segment} · Plano {plan.name}
                 </p>

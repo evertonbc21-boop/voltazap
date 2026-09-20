@@ -8,7 +8,6 @@ import {
   Users,
 } from 'lucide-react'
 import {
-  BUSINESS,
   formatCurrency,
   getDefaultMessage,
 } from '../data/mock'
@@ -277,7 +276,7 @@ function getGreetingName(companyName: string, accountName?: string | null) {
   const match = companyName.match(/\b(?:do|da|de)\s+(.+)$/i)
   if (match?.[1]) return match[1].trim().split(/\s+/)[0]
   const cleaned = companyName.trim()
-  if (!cleaned || cleaned === BUSINESS.company) return BUSINESS.owner
+  if (!cleaned) return 'bem-vindo'
   return cleaned.split(/\s+/)[0]
 }
 

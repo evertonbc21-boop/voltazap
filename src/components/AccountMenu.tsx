@@ -2,7 +2,6 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ChevronDown, CreditCard, LogOut, Settings } from 'lucide-react'
-import { BUSINESS } from '../data/mock'
 import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../context/PlanContext'
 import { useSettings } from '../context/SettingsContext'
@@ -79,7 +78,7 @@ export function AccountMenu() {
     })
   }
 
-  const companyName = settings.companyName || BUSINESS.company
+  const companyName = settings.companyName || 'Seu negócio'
   const segmentEmoji = getSegmentEmoji(settings.segment)
 
   return (

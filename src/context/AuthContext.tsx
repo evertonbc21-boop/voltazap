@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
+import { clearLocalWorkspaceData } from '../lib/clearWorkspace'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 
 interface AuthContextValue {
@@ -63,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     })
     if (error) return { error: mapAuthError(error.message) }
+    // Evita misturar CRM/demo de outra conta no mesmo navegador
+    clearLocalWorkspaceData({ includeSettings: true, includePlan: true })
     return { error: null }
   }, [])
 
@@ -73,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       meta?: { nome?: string; negocio?: string; whatsapp?: string },
     ) => {
       if (!supabase) return { error: 'Supabase não configurado.', needsEmailConfirmation: false }
+      clearLocalWorkspaceData({ includeSettings: true, includePlan: true })
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -93,16 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (supabase) await supabase.auth.signOut()
-    try {
-      localStorage.removeItem('voltazap-settings')
-      localStorage.removeItem('voltazap-plan')
-      localStorage.removeItem('voltazap-clients')
-      localStorage.removeItem('voltazap-replies')
-      localStorage.removeItem('voltazap-business-id')
-      localStorage.removeItem('voltazap-last-campaign')
-    } catch {
-      /* ignore */
-    }
+    clearLocalWorkspaceData({ includeSettings: true, includePlan: true })
   }, [])
 
   const value = useMemo<AuthContextValue>(

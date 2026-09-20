@@ -1,12 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { AVATAR_COLORS, clients as seedClients, countStatuses } from '../data/mock'
+import { AVATAR_COLORS, countStatuses } from '../data/mock'
 import { useAuth } from './AuthContext'
 import {
   clearStoredBusinessId,
   ensureBusinessId,
   fetchClientsForBusiness,
   upsertClientRemote,
-  upsertClientsRemote,
 } from '../lib/clientsApi'
 import { findClientByPhone, normalizeClientPhone } from '../lib/phoneMatch'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -32,12 +31,11 @@ const ClientsContext = createContext<ClientsContextValue | null>(null)
 function loadClients(): Client[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return seedClients
+    if (!raw) return []
     const parsed = JSON.parse(raw) as Client[]
-    if (!Array.isArray(parsed) || parsed.length === 0) return seedClients
-    return parsed
+    return Array.isArray(parsed) ? parsed : []
   } catch {
-    return seedClients
+    return []
   }
 }
 
@@ -117,8 +115,6 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>(() => hydrateFromStoredReplies(loadClients()))
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const businessIdRef = useRef<string | null>(null)
-  const clientsRef = useRef(clients)
-  clientsRef.current = clients
 
   useEffect(() => {
     persistClients(clients)
@@ -148,20 +144,11 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
         businessIdRef.current = businessId
 
         const remote = await fetchClientsForBusiness(businessId)
-        if (cancelled || !remote) return
+        if (cancelled || remote === null) return
 
-        if (remote.length > 0) {
-          persistClients(remote)
-          setClients(remote)
-          return
-        }
-
-        const local = clientsRef.current
-        const looksLikeSeedOnly =
-          local.length > 0 && local.every((c) => seedClients.some((s) => s.id === c.id))
-        if (local.length > 0 && !looksLikeSeedOnly) {
-          await upsertClientsRemote(local, businessId)
-        }
+        // Conta nova ou sem clientes: lista vazia (cliente alimenta os dados)
+        persistClients(remote)
+        setClients(remote)
       } catch (error) {
         console.error('supabase clients sync failed', error)
       } finally {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { BUSINESS } from '../data/mock'
+import { useAuth } from './AuthContext'
 
 export const SEGMENTS = [
   'Pizzaria',
@@ -22,8 +22,9 @@ export interface BusinessSettings {
 
 const STORAGE_KEY = 'voltazap-settings'
 
+/** Conta nova começa sem nome de negócio — preenchido no cadastro/configurações. */
 export const DEFAULT_SETTINGS: BusinessSettings = {
-  companyName: BUSINESS.company,
+  companyName: '',
   segment: 'Pizzaria',
   whatsapp: '',
 }
@@ -42,7 +43,7 @@ function loadSettings(): BusinessSettings {
     if (!raw) return DEFAULT_SETTINGS
     const parsed = JSON.parse(raw) as Partial<BusinessSettings>
     return {
-      companyName: parsed.companyName?.trim() || DEFAULT_SETTINGS.companyName,
+      companyName: parsed.companyName?.trim() || '',
       segment: SEGMENTS.includes(parsed.segment as Segment)
         ? (parsed.segment as Segment)
         : DEFAULT_SETTINGS.segment,
@@ -54,18 +55,37 @@ function loadSettings(): BusinessSettings {
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [settings, setSettings] = useState<BusinessSettings>(loadSettings)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
   }, [settings])
 
+  // Após login, recupera nome do negócio do perfil Auth (conta nova / outro device)
+  useEffect(() => {
+    if (!user) return
+    const negocio =
+      typeof user.user_metadata?.negocio === 'string' ? user.user_metadata.negocio.trim() : ''
+    const whatsapp =
+      typeof user.user_metadata?.whatsapp === 'string' ? user.user_metadata.whatsapp : ''
+    if (!negocio) return
+    setSettings((prev) => {
+      if (prev.companyName.trim()) return prev
+      return {
+        ...prev,
+        companyName: negocio,
+        whatsapp: whatsapp || prev.whatsapp,
+      }
+    })
+  }, [user?.id])
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       settings,
       saveSettings: (next) =>
         setSettings({
-          companyName: next.companyName.trim() || DEFAULT_SETTINGS.companyName,
+          companyName: next.companyName.trim(),
           segment: next.segment,
           whatsapp: next.whatsapp,
         }),

@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { campaignReplies as seedReplies, recentMessages as seedMessages } from '../data/mock'
 import type {
   CampaignReply,
   MessageStatus,
@@ -95,17 +94,14 @@ function normalizeReplies(replies: CampaignReply[]): CampaignReply[] {
 function loadState(): StoredState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { replies: seedReplies, messages: seedMessages }
+    if (!raw) return { replies: [], messages: [] }
     const parsed = JSON.parse(raw) as Partial<StoredState>
     return {
-      replies:
-        Array.isArray(parsed.replies) && parsed.replies.length > 0
-          ? normalizeReplies(parsed.replies)
-          : seedReplies,
-      messages: Array.isArray(parsed.messages) && parsed.messages.length > 0 ? parsed.messages : seedMessages,
+      replies: Array.isArray(parsed.replies) ? normalizeReplies(parsed.replies) : [],
+      messages: Array.isArray(parsed.messages) ? parsed.messages : [],
     }
   } catch {
-    return { replies: seedReplies, messages: seedMessages }
+    return { replies: [], messages: [] }
   }
 }
 

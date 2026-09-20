@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { addDays, formatPlanPrice, formatTrialDate, getPlan, type PlanId } from '../data/plans'
 import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../context/PlanContext'
@@ -21,7 +20,6 @@ const empty = {
 }
 
 export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
-  const navigate = useNavigate()
   const { startTrial } = usePlan()
   const { user, signUp } = useAuth()
   const { saveSettings, settings } = useSettings()
@@ -177,8 +175,7 @@ export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
             <button
               type="button"
               onClick={() => {
-                close()
-                navigate('/')
+                window.location.assign('/')
               }}
               className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white hover:bg-brand-dark"
             >
