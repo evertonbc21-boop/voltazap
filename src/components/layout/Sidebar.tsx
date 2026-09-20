@@ -74,7 +74,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="mt-2 flex-1 space-y-1 px-3">
+        <nav className="mt-2 space-y-1 px-3">
           {nav.map((item) => {
             const Icon = item.icon
             return (
@@ -96,7 +96,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           })}
         </nav>
 
-        <div className="px-4 pb-5">
+        <div className="mt-4 px-4 pb-5">
           <div className="rounded-2xl bg-white/5 p-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-lg">
