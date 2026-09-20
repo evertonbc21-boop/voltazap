@@ -288,15 +288,16 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
         (m) => m.clientId === input.clientId && !m.reply && m.status !== 'respondeu',
       )
       if (openIdx >= 0) {
+        // Mantém a mensagem original como envio do estabelecimento; a resposta fica em `reply`.
         messages[openIdx] = {
           ...messages[openIdx],
           status: 'respondeu',
           reply: entry.reply,
           dateLabel: formatTodayTime(date),
-          waMessageId: input.waMessageId,
+          waMessageId: messages[openIdx].waMessageId || input.waMessageId,
           fromPhone: input.fromPhone,
-          source: input.source,
-          direction: 'inbound',
+          source: messages[openIdx].source || input.source,
+          direction: 'outbound',
         }
       } else {
         messages.unshift(message)
@@ -372,7 +373,24 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
 
       for (const msg of state.messages) {
         if (msg.clientId !== clientId) continue
-        if (msg.direction === 'outbound') {
+
+        // Mensagem só do cliente (inbound puro, sem campanha vinculada)
+        if (msg.direction === 'inbound') {
+          const text = (msg.reply || msg.preview || '').replace(/^WhatsApp · [^:]+:\s*/i, '').trim()
+          if (text) {
+            rows.push({
+              id: msg.id,
+              from: 'client',
+              text,
+              time: msg.dateLabel,
+              status: msg.status,
+            })
+          }
+          continue
+        }
+
+        // Campanha / envio do estabelecimento (outbound ou legado sem direction)
+        if (msg.preview?.trim()) {
           rows.push({
             id: msg.id,
             from: 'business',
@@ -380,44 +398,29 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
             time: msg.dateLabel,
             status: msg.status,
           })
-        } else if (msg.direction === 'inbound' && msg.reply) {
+        }
+        // Resposta do cliente à pergunta do estabelecimento
+        if (msg.reply?.trim()) {
           rows.push({
-            id: `in-${msg.id}`,
+            id: `reply-${msg.id}`,
             from: 'client',
             text: msg.reply,
             time: msg.dateLabel,
-            status: msg.status,
+            status: 'respondeu',
           })
-        } else if (!msg.direction) {
-          rows.push({
-            id: msg.id,
-            from: 'business',
-            text: msg.preview,
-            time: msg.dateLabel,
-            status: msg.status,
-          })
-          if (msg.reply) {
-            rows.push({
-              id: `reply-${msg.id}`,
-              from: 'client',
-              text: msg.reply,
-              time: msg.dateLabel,
-              status: 'respondeu',
-            })
-          }
         }
       }
 
       for (const reply of state.replies) {
         if (reply.clientId !== clientId) continue
-        if (reply.source === 'meta_whatsapp' || reply.source === 'mock' || reply.direction === 'inbound') {
-          rows.push({
-            id: reply.id,
-            from: 'client',
-            text: reply.reply,
-            time: reply.datetime,
-          })
-        }
+        const text = (reply.reply || reply.text || '').trim()
+        if (!text) continue
+        rows.push({
+          id: reply.id,
+          from: 'client',
+          text,
+          time: reply.datetime,
+        })
       }
 
       const seen = new Set<string>()

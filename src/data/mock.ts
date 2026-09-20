@@ -314,6 +314,7 @@ export const recentMessages: SentMessage[] = [
     status: 'respondeu',
     dateLabel: 'Hoje, 10:24',
     reply: 'Quero! 😍',
+    direction: 'outbound',
   },
   {
     id: 'm2',
@@ -321,6 +322,7 @@ export const recentMessages: SentMessage[] = [
     preview: 'Já está chegando aquela vontade de Portuguesa?',
     status: 'entregue',
     dateLabel: 'Hoje, 09:15',
+    direction: 'outbound',
   },
   {
     id: 'm3',
@@ -329,6 +331,7 @@ export const recentMessages: SentMessage[] = [
     status: 'respondeu',
     dateLabel: 'Hoje, 08:47',
     reply: 'Pode mandar uma grande 😂',
+    direction: 'outbound',
   },
   {
     id: 'm4',
@@ -336,6 +339,7 @@ export const recentMessages: SentMessage[] = [
     preview: 'Que tal um Frango com Catupiry hoje?',
     status: 'entregue',
     dateLabel: 'Hoje, 08:30',
+    direction: 'outbound',
   },
   {
     id: 'c5msg',
@@ -343,6 +347,7 @@ export const recentMessages: SentMessage[] = [
     preview: 'Está na hora de repetir seu Quatro Queijos?',
     status: 'lida',
     dateLabel: 'Hoje, 07:52',
+    direction: 'outbound',
   },
 ]
 

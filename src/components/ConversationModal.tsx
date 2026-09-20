@@ -110,6 +110,9 @@ export function ConversationModal({ clientId, onClose }: ConversationModalProps)
                     msg.from === 'business' ? 'rounded-tr-sm bg-[#d9fdd3]' : 'rounded-tl-sm bg-white'
                   }`}
                 >
+                  <p className="mb-0.5 text-[10px] font-semibold text-slate-400">
+                    {msg.from === 'business' ? settings.companyName || 'Você' : activeClient.nome}
+                  </p>
                   <p className="whitespace-pre-wrap text-slate-800">{msg.text}</p>
                   <p className="mt-1 text-right text-[10px] text-slate-400">{msg.time}</p>
                 </div>
