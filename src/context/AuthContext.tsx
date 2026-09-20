@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { clearLocalWorkspaceData, prepareWorkspaceForUser, rememberWorkspaceUser } from '../lib/clearWorkspace'
+import { prepareWorkspaceForUser, runDemoCleanupOnce } from '../lib/clearWorkspace'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 
 interface AuthContextValue {
@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(isSupabaseConfigured)
 
   useEffect(() => {
+    runDemoCleanupOnce()
     if (!supabase || !isSupabaseConfigured) {
       setLoading(false)
       return
@@ -78,8 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       meta?: { nome?: string; negocio?: string; whatsapp?: string },
     ) => {
       if (!supabase) return { error: 'Supabase não configurado.', needsEmailConfirmation: false }
-      // Primeiro cadastro: sempre começa do zero
-      clearLocalWorkspaceData({ includeSettings: true, includePlan: true })
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -92,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       })
       if (error) return { error: mapAuthError(error.message), needsEmailConfirmation: false }
-      if (data.user) rememberWorkspaceUser(data.user.id)
+      if (data.user) prepareWorkspaceForUser(data.user.id, { forceEmpty: true })
       const needsEmailConfirmation = Boolean(data.user) && !data.session
       return { error: null, needsEmailConfirmation }
     },

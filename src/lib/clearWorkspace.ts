@@ -1,4 +1,5 @@
 const LAST_USER_KEY = 'voltazap-last-user-id'
+const DEMO_CLEANUP_KEY = 'voltazap-cleared-demo-v1'
 
 /** Limpa dados locais de demo/CRM (não remove a sessão Supabase). */
 export function clearLocalWorkspaceData(options?: { includeSettings?: boolean; includePlan?: boolean }) {
@@ -18,6 +19,19 @@ export function clearLocalWorkspaceData(options?: { includeSettings?: boolean; i
   }
 }
 
+/** Remove uma vez o CRM demo antigo do navegador (clientes/mensagens seed). */
+export function runDemoCleanupOnce() {
+  try {
+    if (localStorage.getItem(DEMO_CLEANUP_KEY)) return
+    localStorage.removeItem('voltazap-clients')
+    localStorage.removeItem('voltazap-replies')
+    localStorage.removeItem('voltazap-last-campaign')
+    localStorage.setItem(DEMO_CLEANUP_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
 export function rememberWorkspaceUser(userId: string) {
   try {
     localStorage.setItem(LAST_USER_KEY, userId)
@@ -27,8 +41,11 @@ export function rememberWorkspaceUser(userId: string) {
 }
 
 /**
- * Só zera o workspace no primeiro cadastro (forceEmpty) ou ao trocar de conta.
- * Mesmo usuário saindo e voltando: dados locais permanecem.
+ * Zera o workspace local quando:
+ * - forceEmpty (primeiro cadastro)
+ * - trocou de conta / ainda não havia last-user
+ *
+ * Mesmo usuário saindo e voltando (last === userId): mantém os dados.
  */
 export function prepareWorkspaceForUser(userId: string, options?: { forceEmpty?: boolean }) {
   let last: string | null = null
@@ -38,7 +55,7 @@ export function prepareWorkspaceForUser(userId: string, options?: { forceEmpty?:
     last = null
   }
 
-  if (options?.forceEmpty || (last != null && last !== userId)) {
+  if (options?.forceEmpty || last !== userId) {
     clearLocalWorkspaceData({ includeSettings: true, includePlan: true })
   }
 

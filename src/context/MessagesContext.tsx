@@ -6,6 +6,7 @@ import type {
   ReplySource,
   SentMessage,
 } from '../types'
+import { runDemoCleanupOnce } from '../lib/clearWorkspace'
 
 const STORAGE_KEY = 'voltazap-replies'
 
@@ -92,6 +93,7 @@ function normalizeReplies(replies: CampaignReply[]): CampaignReply[] {
 }
 
 function loadState(): StoredState {
+  runDemoCleanupOnce()
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { replies: [], messages: [] }

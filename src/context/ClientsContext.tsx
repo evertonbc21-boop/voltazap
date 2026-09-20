@@ -8,6 +8,7 @@ import {
   upsertClientRemote,
 } from '../lib/clientsApi'
 import { findClientByPhone, normalizeClientPhone } from '../lib/phoneMatch'
+import { runDemoCleanupOnce } from '../lib/clearWorkspace'
 import { isSupabaseConfigured } from '../lib/supabase'
 import type { Client } from '../types'
 
@@ -29,6 +30,7 @@ interface ClientsContextValue {
 const ClientsContext = createContext<ClientsContextValue | null>(null)
 
 function loadClients(): Client[] {
+  runDemoCleanupOnce()
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
@@ -136,6 +138,9 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false
     setLoading(true)
+    // Evita flash/persistência de demo antigo enquanto busca o CRM real
+    persistClients([])
+    setClients([])
 
     ;(async () => {
       try {
@@ -144,11 +149,12 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
         businessIdRef.current = businessId
 
         const remote = await fetchClientsForBusiness(businessId)
-        if (cancelled || remote === null) return
+        if (cancelled) return
 
-        // Conta nova ou sem clientes: lista vazia (cliente alimenta os dados)
-        persistClients(remote)
-        setClients(remote)
+        // Fonte da verdade = Supabase (lista vazia no primeiro uso)
+        const next = remote ?? []
+        persistClients(next)
+        setClients(next)
       } catch (error) {
         console.error('supabase clients sync failed', error)
       } finally {
