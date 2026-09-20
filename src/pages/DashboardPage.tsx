@@ -13,7 +13,7 @@ import {
   DEFAULT_MESSAGE,
   formatCurrency,
 } from '../data/mock'
-import { Avatar, ClientCell } from '../components/ui/Avatar'
+import { ClientCell } from '../components/ui/Avatar'
 import { DonutChart } from '../components/ui/DonutChart'
 import { MessageStatusBadge } from '../components/ui/StatusBadge'
 import { useClients } from '../context/ClientsContext'
@@ -179,7 +179,7 @@ export function DashboardPage() {
         </article>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.7fr_0.9fr]">
+      <section>
         <article className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="flex items-center justify-between px-5 py-4">
             <h3 className="text-lg font-semibold text-slate-800">Últimas mensagens enviadas</h3>
@@ -225,23 +225,6 @@ export function DashboardPage() {
                 })}
               </tbody>
             </table>
-          </div>
-        </article>
-
-        <article className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 shadow-sm">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-            💡 Dica do dia
-          </h3>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            Clientes que recebem mensagens personalizadas têm <strong>3x mais chances</strong> de voltar a comprar.
-          </p>
-          <div className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
-            <div className="flex items-start gap-2">
-              <Avatar name="E" color="#22c55e" size="sm" />
-              <div className="rounded-2xl rounded-tl-sm bg-[#d9fdd3] px-3 py-2 text-xs text-slate-700">
-                “Everton, já faz 21 dias que você não pede sua Calabresa com Catupiry. Quer que eu envie uma pizza quentinha hoje? 🍕”
-              </div>
-            </div>
           </div>
         </article>
       </section>
