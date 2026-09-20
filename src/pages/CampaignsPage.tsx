@@ -355,7 +355,7 @@ export function CampaignsPage() {
         />
         <Step
           n={3}
-          title="Revisar"
+          title="Agendamento"
           subtitle="Confira e envie"
           active={activeStep === 3}
           onClick={() => scrollToStep(3)}
