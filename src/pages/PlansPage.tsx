@@ -7,32 +7,43 @@ import { usePlan } from '../context/PlanContext'
 import type { PlanId } from '../data/plans'
 
 export function PlansPage() {
-  const { planId, selectPlan } = usePlan()
+  const { planId, account, selectPlan } = usePlan()
   const { user } = useAuth()
   const [signupPlan, setSignupPlan] = useState<PlanId | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
+  /** Já tem conta/sessão: só troca o plano. Senão: abre cadastro. */
+  const canSwitchPlan = Boolean(user || account)
+
   function handleChoosePlan(nextId: PlanId) {
-    if (user) {
-      if (nextId === planId) return
-      selectPlan(nextId)
-      const name = PLANS.find((p) => p.id === nextId)?.name ?? 'plano'
-      setToast(`Plano ${name} selecionado.`)
-      window.setTimeout(() => setToast(null), 2500)
+    const name = PLANS.find((p) => p.id === nextId)?.name ?? 'plano'
+
+    // Sempre atualiza o plano selecionado (feedback imediato no card "Atual")
+    selectPlan(nextId)
+
+    if (!canSwitchPlan) {
+      setSignupPlan(nextId)
       return
     }
-    setSignupPlan(nextId)
+
+    setToast(`Plano ${name} selecionado.`)
+    window.setTimeout(() => setToast(null), 2500)
   }
 
   return (
     <div className="space-y-6">
       <header className="text-center lg:text-left">
         <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Planos</h2>
-        <p className="mt-1 text-slate-500">Escolha o plano certo para reativar seus clientes. Teste grátis por 7 dias.</p>
+        <p className="mt-1 text-slate-500">
+          Escolha o plano certo para reativar seus clientes. Teste grátis por 7 dias.
+        </p>
       </header>
 
       {toast ? (
-        <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+        <p
+          role="status"
+          className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700"
+        >
           {toast}
         </p>
       ) : null}
@@ -43,7 +54,16 @@ export function PlansPage() {
           return (
             <article
               key={plan.id}
-              className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${
+              role="button"
+              tabIndex={0}
+              onClick={() => handleChoosePlan(plan.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleChoosePlan(plan.id)
+                }
+              }}
+              className={`relative flex cursor-pointer flex-col rounded-2xl border bg-white p-6 text-left shadow-sm transition hover:border-brand/50 ${
                 current
                   ? 'border-brand ring-2 ring-brand/20'
                   : plan.popular
@@ -53,7 +73,7 @@ export function PlansPage() {
             >
               {plan.popular && !current ? (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand px-3 py-1 text-[11px] font-bold tracking-wide text-white">
-                  ⭐ MAIS POPULAR
+                  ★ MAIS POPULAR
                 </span>
               ) : null}
               <div className="flex items-start justify-between gap-2">
@@ -80,9 +100,11 @@ export function PlansPage() {
               </ul>
               <button
                 type="button"
-                disabled={Boolean(user) && current}
-                onClick={() => handleChoosePlan(plan.id)}
-                className={`mt-6 w-full rounded-xl py-3 text-sm font-semibold disabled:cursor-default disabled:opacity-70 ${
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleChoosePlan(plan.id)
+                }}
+                className={`mt-6 w-full rounded-xl py-3 text-sm font-semibold ${
                   current
                     ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
                     : plan.popular
@@ -90,7 +112,7 @@ export function PlansPage() {
                       : 'border border-slate-200 text-slate-700 hover:border-brand hover:text-brand'
                 }`}
               >
-                {user
+                {canSwitchPlan
                   ? current
                     ? 'Plano atual'
                     : 'Escolher este plano'
