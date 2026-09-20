@@ -4,6 +4,7 @@ import {
   CircleDollarSign,
   MessageCircle,
   Pizza,
+  RefreshCw,
   Send,
   Users,
 } from 'lucide-react'
@@ -18,6 +19,7 @@ import { DonutChart } from '../components/ui/DonutChart'
 import { MessageStatusBadge } from '../components/ui/StatusBadge'
 import { useClients } from '../context/ClientsContext'
 import { useMessages } from '../context/MessagesContext'
+import { refreshWhatsAppInbound } from '../hooks/useWhatsAppInboundSync'
 import { sendClientWhatsApp } from '../lib/whatsapp'
 import { DatePicker, formatLongDate } from '../components/ui/DatePicker'
 import { usePlan } from '../context/PlanContext'
@@ -32,6 +34,7 @@ export function DashboardPage() {
   const { messages, stats } = useMessages()
   const { plan, account } = usePlan()
   const { settings } = useSettings()
+  const [refreshing, setRefreshing] = useState(false)
   const used = Math.min(plan.clientsLimit, clients.length)
   const greetingName = getGreetingName(settings.companyName, account?.nome)
   const businessLabel = getBusinessLabel(settings.segment)
@@ -181,15 +184,28 @@ export function DashboardPage() {
 
       <section>
         <article className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div className="flex items-center justify-between px-5 py-4">
+          <div className="flex items-center justify-between gap-3 px-5 py-4">
             <h3 className="text-lg font-semibold text-slate-800">Últimas mensagens enviadas</h3>
-            <Link to="/mensagens" className="text-sm font-medium text-slate-400 hover:text-brand">
-              Ver todas
-            </Link>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={refreshing}
+                onClick={() => {
+                  setRefreshing(true)
+                  void refreshWhatsAppInbound()
+                    .catch(() => {})
+                    .finally(() => setRefreshing(false))
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
+              >
+                <RefreshCw size={14} className={refreshing ? 'animate-spin' : undefined} />
+                {refreshing ? 'Atualizando…' : 'Atualizar'}
+              </button>
+              <Link to="/mensagens" className="text-sm font-medium text-slate-400 hover:text-brand">
+                Ver todas
+              </Link>
+            </div>
           </div>
-          <p className="px-5 pb-3 text-sm text-amber-700">
-            Após falar no WhatsApp, use “Registrar resposta” em Resultados ou Mensagens para o relatório atualizar.
-          </p>
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-slate-400">

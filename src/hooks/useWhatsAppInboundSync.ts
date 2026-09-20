@@ -224,6 +224,12 @@ function stopRealtimeIfIdle() {
  * Ponte em tempo quase real: long-poll /api/inbound-messages/wait
  * → localStorage → Resultados/Mensagens.
  */
+export async function refreshWhatsAppInbound(): Promise<void> {
+  const controller = new AbortController()
+  await hydrateOnce(controller.signal)
+  window.dispatchEvent(new Event('voltazap-replies-updated'))
+}
+
 export function useWhatsAppInboundSync(enabled = true) {
   const { clients, ensureClientFromWhatsApp } = useClients()
   const { ingestInboundReply, applyDeliveryStatus, hasWaMessage } = useMessages()
