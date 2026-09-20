@@ -587,12 +587,10 @@ export function CampaignsPage() {
       {queue.length > 0 ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-h-[80vh] w-full max-w-md overflow-auto rounded-2xl bg-white p-5 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-900">
-              {sendProvider === 'meta_cloud' ? 'Continuar envio (Cloud API)' : 'Continuar envio no WhatsApp'}
-            </h3>
+            <h3 className="text-lg font-semibold text-slate-900">Continuar envio no WhatsApp</h3>
             <p className="mt-1 text-sm text-slate-500">
               {sendProvider === 'meta_cloud'
-                ? 'Alguns envios faltaram. Tente novamente ou use WhatsApp Web.'
+                ? 'Alguns envios faltaram. Tente novamente.'
                 : 'A primeira conversa já abriu. Envie as demais uma a uma e confirme no aplicativo.'}
             </p>
             <ul className="mt-4 space-y-2">

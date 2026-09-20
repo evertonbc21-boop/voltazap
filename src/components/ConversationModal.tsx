@@ -51,7 +51,7 @@ export function ConversationModal({ clientId, onClose }: ConversationModalProps)
         source: 'whatsapp_cloud',
       })
       setDraft('')
-      setHint('Mensagem enviada pela Cloud API.')
+      setHint('Mensagem enviada.')
       setBusy(false)
       return
     }
@@ -66,7 +66,7 @@ export function ConversationModal({ clientId, onClose }: ConversationModalProps)
           source: 'manual',
         })
         setDraft('')
-        setHint('Cloud API não configurada — abriu o WhatsApp Web como fallback.')
+        setHint('Abriu o WhatsApp para concluir o envio.')
       } else {
         setHint(result.detail || 'Não foi possível enviar. Verifique o telefone.')
       }
@@ -145,7 +145,7 @@ export function ConversationModal({ clientId, onClose }: ConversationModalProps)
             </button>
           </div>
           <p className="mt-2 text-center text-[11px] text-slate-400">
-            {settings.companyName} · Cloud API (fallback wa.me se não configurada)
+            {settings.companyName}
           </p>
         </div>
       </div>
