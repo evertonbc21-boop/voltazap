@@ -71,7 +71,7 @@ export function AccountMenu() {
   }, [open])
 
   function handleLogout() {
-    const ok = window.confirm('Sair da conta e limpar dados locais deste navegador?')
+    const ok = window.confirm('Sair da conta? Seus dados ficam salvos para quando você voltar.')
     if (!ok) return
     void signOut().then(() => {
       window.location.href = '/login'

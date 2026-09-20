@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { clearLocalWorkspaceData } from '../lib/clearWorkspace'
+import { clearLocalWorkspaceData, prepareWorkspaceForUser, rememberWorkspaceUser } from '../lib/clearWorkspace'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 
 interface AuthContextValue {
@@ -59,13 +59,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) return { error: 'Supabase não configurado.' }
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     })
     if (error) return { error: mapAuthError(error.message) }
-    // Evita misturar CRM/demo de outra conta no mesmo navegador
-    clearLocalWorkspaceData({ includeSettings: true, includePlan: true })
+    if (data.user) {
+      // Mesma conta: mantém dados. Outra conta: zera o workspace local.
+      prepareWorkspaceForUser(data.user.id)
+    }
     return { error: null }
   }, [])
 
@@ -76,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       meta?: { nome?: string; negocio?: string; whatsapp?: string },
     ) => {
       if (!supabase) return { error: 'Supabase não configurado.', needsEmailConfirmation: false }
+      // Primeiro cadastro: sempre começa do zero
       clearLocalWorkspaceData({ includeSettings: true, includePlan: true })
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -89,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       })
       if (error) return { error: mapAuthError(error.message), needsEmailConfirmation: false }
+      if (data.user) rememberWorkspaceUser(data.user.id)
       const needsEmailConfirmation = Boolean(data.user) && !data.session
       return { error: null, needsEmailConfirmation }
     },
@@ -96,8 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
+    // Não apaga CRM: ao voltar com a mesma conta os dados permanecem
     if (supabase) await supabase.auth.signOut()
-    clearLocalWorkspaceData({ includeSettings: true, includePlan: true })
   }, [])
 
   const value = useMemo<AuthContextValue>(
