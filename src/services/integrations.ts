@@ -32,11 +32,20 @@ export async function sendCampaignMessages(payload: {
 
   if (!firstCloud.ok && (firstCloud.fallbackSuggested || firstCloud.error === 'whatsapp_not_configured')) {
     const first = payload.clients[0]
+    const text = personalizeMessage(payload.template, first, payload.segment)
     sendClientWhatsApp(first, payload.template, payload.segment)
     return {
       queued: true,
       provider: 'whatsapp-web',
       remaining: payload.clients.slice(1),
+      sent: [
+        {
+          clientId: first.id,
+          waMessageId: null,
+          text,
+          to: first.whatsapp,
+        },
+      ],
     }
   }
 

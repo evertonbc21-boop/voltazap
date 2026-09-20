@@ -3,15 +3,14 @@ import { Link } from 'react-router-dom'
 import {
   CircleDollarSign,
   MessageCircle,
-  Pizza,
   RefreshCw,
   Send,
   Users,
 } from 'lucide-react'
 import {
   BUSINESS,
-  DEFAULT_MESSAGE,
   formatCurrency,
+  getDefaultMessage,
 } from '../data/mock'
 import { ClientCell } from '../components/ui/Avatar'
 import { DonutChart } from '../components/ui/DonutChart'
@@ -63,9 +62,9 @@ export function DashboardPage() {
 
   const kpis = [
     { label: 'Clientes cadastrados', value: String(clients.length), icon: Users, iconBg: 'bg-sky-50 text-sky-500', highlight: false },
-    { label: 'Mensagens enviadas', value: String(messages.length), icon: Send, iconBg: 'bg-emerald-50 text-emerald-500', highlight: false },
+    { label: 'Mensagens enviadas', value: String(stats.outboundSent), icon: Send, iconBg: 'bg-emerald-50 text-emerald-500', highlight: false },
     { label: 'Respostas recebidas', value: String(stats.totalReplies), icon: MessageCircle, iconBg: 'bg-violet-50 text-violet-500', highlight: false },
-    { label: 'Pedidos recuperados', value: String(stats.orders), icon: Pizza, iconBg: 'bg-orange-50 text-orange-500', highlight: false },
+    { label: 'Pedidos recuperados', value: String(stats.orders), icon: CircleDollarSign, iconBg: 'bg-orange-50 text-orange-500', highlight: false },
     { label: 'Faturamento recuperado', value: formatCurrency(stats.revenue), icon: CircleDollarSign, iconBg: 'bg-emerald-50 text-emerald-600', highlight: true },
   ]
 
@@ -168,8 +167,8 @@ export function DashboardPage() {
             <ul className="w-full space-y-3 text-sm">
               <Legend color="#22c55e" label="Normal (não contactar)" value={statusCounts.normal} />
               <Legend color="#eab308" label="Próxima compra" value={statusCounts.proxima_compra} />
-              <Legend color="#ef4444" label="Atrasados" value={statusCounts.atrasado} />
-              <Legend color="#94a3b8" label="Muito tempo sem comprar" value={statusCounts.muito_tempo} />
+              <Legend color="#ef4444" label="Compra atrasada" value={statusCounts.atrasado} />
+              <Legend color="#94a3b8" label="Inativos" value={statusCounts.muito_tempo} />
             </ul>
           </div>
         </article>
@@ -228,14 +227,17 @@ export function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {messages.slice(0, 5).map((msg) => {
+                {messages
+                  .filter((msg) => msg.direction !== 'inbound')
+                  .slice(0, 5)
+                  .map((msg) => {
                   const client = getClient(msg.clientId)
                   if (!client) return null
                   return (
                     <tr
                       key={msg.id}
                       className="cursor-pointer border-b border-slate-50 last:border-0 hover:bg-slate-50"
-                      onClick={() => sendClientWhatsApp(client, DEFAULT_MESSAGE)}
+                      onClick={() => sendClientWhatsApp(client, getDefaultMessage(settings.segment), settings.segment)}
                     >
                       <td className="px-5 py-3">
                         <ClientCell client={client} />

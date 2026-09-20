@@ -11,15 +11,16 @@ export function LineChart({ data }: { data: Point[] }) {
   const pad = { top: 16, right: 16, bottom: 32, left: 36 }
   const innerW = width - pad.left - pad.right
   const innerH = height - pad.top - pad.bottom
-  const maxY = 50
+  const maxY = Math.max(10, ...data.flatMap((d) => [d.sent, d.replies, d.orders]), 1)
+  const tickStep = maxY <= 20 ? 5 : maxY <= 50 ? 10 : Math.ceil(maxY / 5)
+  const ticks = Array.from({ length: Math.floor(maxY / tickStep) + 1 }, (_, i) => i * tickStep)
+  const lastIndex = Math.max(data.length - 1, 1)
 
-  const x = (i: number) => pad.left + (i / (data.length - 1)) * innerW
+  const x = (i: number) => pad.left + (i / lastIndex) * innerW
   const y = (v: number) => pad.top + innerH - (v / maxY) * innerH
 
   const path = (key: keyof Omit<Point, 'hour'>) =>
     data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(d[key])}`).join(' ')
-
-  const ticks = [0, 10, 20, 30, 40, 50]
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full">

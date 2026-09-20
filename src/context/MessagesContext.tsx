@@ -66,6 +66,7 @@ interface MessagesContextValue {
   }>
   stats: {
     totalReplies: number
+    outboundSent: number
     orders: number
     revenue: number
     responseRateLabel: string
@@ -435,7 +436,8 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     const orders = state.replies.filter((r) => (r.orderValue ?? 0) > 0).length
     const revenue = state.replies.reduce((sum, r) => sum + (r.orderValue ?? 0), 0)
     const answered = state.replies.filter((r) => r.outcome !== 'nao_respondeu').length
-    const base = Math.max(state.replies.length, 1)
+    const outboundSent = state.messages.filter((m) => m.direction !== 'inbound').length
+    const sendBase = Math.max(outboundSent, 1)
 
     return {
       replies: state.replies,
@@ -447,11 +449,12 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       applyDeliveryStatus,
       getConversation,
       stats: {
-        totalReplies: state.replies.length,
+        totalReplies: answered,
+        outboundSent,
         orders,
         revenue,
-        responseRateLabel: `${Math.round((answered / base) * 100)}%`,
-        orderRateLabel: `${Math.round((orders / base) * 100)}%`,
+        responseRateLabel: `${Math.round((answered / sendBase) * 100)}%`,
+        orderRateLabel: `${Math.round((orders / sendBase) * 100)}%`,
       },
     }
   }, [state])

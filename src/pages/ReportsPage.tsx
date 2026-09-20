@@ -12,7 +12,7 @@ export function ReportsPage() {
     { label: 'Faturamento recuperado', value: formatCurrency(stats.revenue) },
     {
       label: 'Clientes prontos para campanha',
-      value: String(statusCounts.proxima_compra + statusCounts.atrasado),
+      value: String(statusCounts.proxima_compra + statusCounts.atrasado + statusCounts.muito_tempo),
     },
   ]
 

@@ -31,6 +31,7 @@ import {
   getSegmentProductLabel,
   type MessageMode,
 } from '../data/messageTemplates'
+import { useCampaign } from '../context/CampaignContext'
 import { suggestCampaignMessage, type AiSuggestProvider } from '../services/aiSuggest'
 import { usePlan } from '../context/PlanContext'
 
@@ -48,6 +49,7 @@ export function CampaignsPage() {
   const { recordOutboundMessage } = useMessages()
   const { settings } = useSettings()
   const { account } = usePlan()
+  const { saveLastCampaign } = useCampaign()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const preselectedId = params.get('clientId')
@@ -251,6 +253,33 @@ export function CampaignsPage() {
       return
     }
 
+    const start = !sendNow && scheduledAt ? new Date(scheduledAt) : new Date()
+    const finish = new Date(start)
+    finish.setHours(20, 15, 0, 0)
+    if (finish.getTime() <= start.getTime()) {
+      finish.setTime(start.getTime() + 10 * 60 * 60 * 1000)
+    }
+
+    const campaignPayload = {
+      name: campaignName,
+      audienceKey: audience,
+      audienceTitle: audienceOption?.title ?? 'Público',
+      audienceCount,
+      messageModeLabel,
+      startedAt: start.toISOString(),
+      finishedAt: finish.toISOString(),
+      sentBy: sentByLabel,
+      recipientIds: recipients.map((c) => c.id),
+      creditCost: audienceCount,
+    }
+
+    // Agendamento: grava a campanha sem disparar envio imediato
+    if (!sendNow) {
+      saveLastCampaign({ ...campaignPayload, status: 'agendada' })
+      navigate('/resultados')
+      return
+    }
+
     setSendBusy(true)
     try {
       const result = await sendCampaignMessages({
@@ -270,10 +299,18 @@ export function CampaignsPage() {
             text: item.text,
             fromPhone: item.to,
             waMessageId: item.waMessageId,
-            source: 'whatsapp_cloud',
+            source: result.provider === 'meta_cloud' ? 'whatsapp_cloud' : 'manual',
           })
         }
       }
+
+      const sentCount = result.sent?.length ?? 0
+      const status =
+        result.remaining.length > 0 || (result.error && sentCount > 0)
+          ? 'parcial'
+          : 'concluida'
+
+      saveLastCampaign({ ...campaignPayload, status })
 
       if (result.provider === 'whatsapp-web') {
         if (result.remaining.length > 0) {
@@ -403,8 +440,8 @@ export function CampaignsPage() {
               })}
             </div>
             {audience === 'personalizado' ? (
-              <div className="mt-4 max-h-40 overflow-auto rounded-xl border border-slate-100 p-3">
-                {clients.slice(0, 20).map((client) => (
+              <div className="mt-4 max-h-56 overflow-auto rounded-xl border border-slate-100 p-3">
+                {clients.map((client) => (
                   <label key={client.id} className="flex items-center gap-2 py-1 text-sm text-slate-600">
                     <input
                       type="checkbox"

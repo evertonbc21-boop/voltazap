@@ -77,7 +77,7 @@ export function AddClientModal({ open, onClose, onAdded }: AddClientModalProps) 
         <div className="mb-5 flex items-start justify-between">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Adicionar cliente</h3>
-            <p className="mt-1 text-sm text-slate-500">Cadastre quem já comprou na Pizzaria do Guto.</p>
+            <p className="mt-1 text-sm text-slate-500">Cadastre quem já comprou no seu negócio.</p>
           </div>
           <button type="button" onClick={close} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Fechar">
             <X size={18} />
@@ -161,8 +161,8 @@ export function AddClientModal({ open, onClose, onAdded }: AddClientModalProps) 
             >
               <option value="normal">Normal</option>
               <option value="proxima_compra">Próxima compra</option>
-              <option value="atrasado">Atrasado</option>
-              <option value="muito_tempo">Muito tempo sem comprar</option>
+              <option value="atrasado">Compra atrasada</option>
+              <option value="muito_tempo">Inativos</option>
             </select>
           </label>
         </div>

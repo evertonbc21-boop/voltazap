@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ChevronDown, MessageSquarePlus, Plus, Search } from 'lucide-react'
-import { campaignEvolution, formatCurrency } from '../data/mock'
+import { formatCurrency } from '../data/mock'
 import { ClientCell } from '../components/ui/Avatar'
 import { DonutChart } from '../components/ui/DonutChart'
 import { LineChart } from '../components/ui/LineChart'
@@ -11,6 +11,11 @@ import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
 import { useMessages } from '../context/MessagesContext'
 import { useSettings } from '../context/SettingsContext'
+import {
+  formatCampaignDateTime,
+  formatCampaignLongDate,
+  useCampaign,
+} from '../context/CampaignContext'
 import { getCampaignDisplayName, getSegmentEmoji } from '../data/messageTemplates'
 import { resolveDisplayClient } from '../lib/resolveDisplayClient'
 import type { ReplyOutcome } from '../types'
@@ -27,31 +32,59 @@ export function ResultsPage() {
   const [replyQuery, setReplyQuery] = useState('')
   const [outcomeFilter, setOutcomeFilter] = useState<'todos' | ReplyOutcome>('todos')
   const [registerOpen, setRegisterOpen] = useState(false)
-  const { getClient, statusCounts } = useClients()
+  const { getClient } = useClients()
   const { settings } = useSettings()
   const { replies, messages, stats } = useMessages()
-  const campaignName = getCampaignDisplayName(settings.segment)
+  const { lastCampaign } = useCampaign()
+  const campaignName = lastCampaign?.name || getCampaignDisplayName(settings.segment)
   const segmentEmoji = getSegmentEmoji(settings.segment)
 
-  const sentCount = Math.max(messages.length, 45)
-  const delivered = Math.max(
-    messages.filter((m) => m.status !== 'nao_entregue').length,
-    Math.round(sentCount * 0.93),
+  const outbound = useMemo(
+    () => messages.filter((m) => m.direction !== 'inbound'),
+    [messages],
   )
-  const failed = Math.max(sentCount - delivered, 0)
+  const sentCount = outbound.length
+  const delivered = outbound.filter((m) => m.status !== 'nao_entregue').length
+  const readCount = outbound.filter((m) => m.status === 'lida' || m.status === 'respondeu').length
+  const failed = outbound.filter((m) => m.status === 'nao_entregue').length
+  const pct = (part: number) =>
+    sentCount > 0 ? `${((part / sentCount) * 100).toFixed(1).replace('.', ',')}%` : '0%'
+
+  const evolution = useMemo(() => {
+    const hours = ['10:00', '12:00', '14:00', '16:00', '18:00', '20:00']
+    const totalSent = sentCount
+    const totalReplies = stats.totalReplies
+    const totalOrders = stats.orders
+    return hours.map((hour, index) => {
+      const ratio = (index + 1) / hours.length
+      return {
+        hour,
+        sent: Math.round(totalSent * ratio),
+        replies: Math.round(totalReplies * ratio),
+        orders: Math.round(totalOrders * ratio),
+      }
+    })
+  }, [sentCount, stats.totalReplies, stats.orders])
+
+  const statusBadge =
+    lastCampaign?.status === 'agendada'
+      ? { label: 'Agendada', className: 'bg-amber-50 text-amber-700' }
+      : lastCampaign?.status === 'parcial'
+        ? { label: 'Parcial', className: 'bg-sky-50 text-sky-700' }
+        : { label: 'Concluída', className: 'bg-emerald-50 text-emerald-600' }
 
   const kpis = [
     {
       value: String(sentCount),
       label: 'Mensagens enviadas',
-      meta: '100%',
+      meta: pct(sentCount),
       color: 'text-sky-500',
       icon: '✈️',
     },
     {
       value: String(delivered),
       label: 'Entregues',
-      meta: `${((delivered / sentCount) * 100).toFixed(1).replace('.', ',')}%`,
+      meta: pct(delivered),
       color: 'text-emerald-500',
       icon: '✓',
     },
@@ -67,7 +100,7 @@ export function ResultsPage() {
       label: 'Pedidos realizados',
       meta: stats.orderRateLabel,
       color: 'text-orange-500',
-      icon: '🍕',
+      icon: segmentEmoji,
     },
     {
       value: formatCurrency(stats.revenue || 0),
@@ -75,7 +108,7 @@ export function ResultsPage() {
       meta:
         stats.orders > 0
           ? `Ticket médio ${formatCurrency(Math.round(stats.revenue / stats.orders))}`
-          : 'Registre respostas com pedido',
+          : 'Registre respostas com valor',
       color: 'text-emerald-600',
       icon: '💰',
     },
@@ -136,11 +169,15 @@ export function ResultsPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-xl">{segmentEmoji}</div>
           <div>
             <h3 className="font-semibold text-slate-800">Campanha - {campaignName}</h3>
-            <p className="text-sm text-slate-400">Enviada em 13 de setembro de 2026 às 10:00</p>
+            <p className="text-sm text-slate-400">
+              {lastCampaign
+                ? `${lastCampaign.status === 'agendada' ? 'Agendada para' : 'Iniciada em'} ${formatCampaignLongDate(lastCampaign.startedAt)}`
+                : 'Envie uma campanha para ver os detalhes aqui.'}
+            </p>
           </div>
         </div>
-        <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
-          Concluída
+        <span className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold ${statusBadge.className}`}>
+          {statusBadge.label}
         </span>
       </section>
 
@@ -171,7 +208,7 @@ export function ResultsPage() {
             </span>
           </div>
           <div className="mt-2 h-64">
-            <LineChart data={campaignEvolution} />
+            <LineChart data={evolution} />
           </div>
         </article>
         <article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -180,8 +217,8 @@ export function ResultsPage() {
             <DonutChart
               slices={[
                 { value: delivered, color: '#22c55e' },
-                { value: Math.max(Math.round(delivered * 0.66), 1), color: '#86efac' },
-                { value: Math.max(failed, 1), color: '#ef4444' },
+                { value: readCount, color: '#86efac' },
+                { value: failed, color: '#ef4444' },
               ]}
               centerTitle={String(sentCount)}
               centerSubtitle="mensagens"
@@ -192,15 +229,15 @@ export function ResultsPage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Entregues
                 </span>
                 <strong>
-                  {delivered} ({((delivered / sentCount) * 100).toFixed(1).replace('.', ',')}%)
+                  {delivered} ({pct(delivered)})
                 </strong>
               </li>
               <li className="flex justify-between text-slate-600">
                 <span className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" /> Lidas
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" /> Lidas / respondidas
                 </span>
                 <strong>
-                  {Math.round(delivered * 0.66)} ({(((delivered * 0.66) / sentCount) * 100).toFixed(1).replace('.', ',')}%)
+                  {readCount} ({pct(readCount)})
                 </strong>
               </li>
               <li className="flex justify-between text-slate-600">
@@ -208,7 +245,7 @@ export function ResultsPage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Não entregues
                 </span>
                 <strong>
-                  {failed} ({((failed / sentCount) * 100).toFixed(1).replace('.', ',')}%)
+                  {failed} ({pct(failed)})
                 </strong>
               </li>
             </ul>
@@ -336,12 +373,24 @@ export function ResultsPage() {
               <Row label="Nome da campanha" value={campaignName} />
               <Row
                 label="Público"
-                value={`Compra atrasada (${statusCounts.atrasado} ${statusCounts.atrasado === 1 ? 'cliente' : 'clientes'})`}
+                value={
+                  lastCampaign
+                    ? `${lastCampaign.audienceTitle} (${lastCampaign.audienceCount} ${
+                        lastCampaign.audienceCount === 1 ? 'cliente' : 'clientes'
+                      })`
+                    : '—'
+                }
               />
-              <Row label="Mensagem" value="Personalizada pela IA" />
-              <Row label="Enviada em" value="13/09/2026 às 10:00" />
-              <Row label="Finalizada em" value="13/09/2026 às 20:15" />
-              <Row label="Enviada por" value={`${settings.companyName} (Você)`} />
+              <Row label="Mensagem" value={lastCampaign?.messageModeLabel || '—'} />
+              <Row
+                label="Precisa ser iniciada em"
+                value={lastCampaign ? formatCampaignDateTime(lastCampaign.startedAt) : '—'}
+              />
+              <Row
+                label="Finalizada em"
+                value={lastCampaign ? formatCampaignDateTime(lastCampaign.finishedAt) : '—'}
+              />
+              <Row label="Enviada por" value={lastCampaign?.sentBy || `${settings.companyName} (Você)`} />
             </dl>
           </article>
         </div>

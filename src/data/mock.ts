@@ -1,6 +1,6 @@
 import type { AudienceKey, Client, ClientStatus, SentMessage, CampaignReply } from '../types'
 import type { Segment } from '../context/SettingsContext'
-import { favoriteForSegment } from './messageTemplates'
+import { favoriteForSegment, getAiSuggestions } from './messageTemplates'
 
 export const BUSINESS = {
   name: 'VoltaZap',
@@ -41,15 +41,15 @@ export const STATUS_META: Record<
     text: 'text-amber-600',
   },
   atrasado: {
-    label: 'Atrasado',
-    shortLabel: 'Atrasado',
+    label: 'Compra atrasada',
+    shortLabel: 'Atrasada',
     color: '#ef4444',
     bg: 'bg-red-50',
     text: 'text-red-500',
   },
   muito_tempo: {
-    label: 'Muito tempo sem comprar',
-    shortLabel: 'Muito tempo',
+    label: 'Inativos',
+    shortLabel: 'Inativos',
     color: '#6b7280',
     bg: 'bg-slate-100',
     text: 'text-slate-500',
@@ -288,15 +288,12 @@ export function countStatuses(list: Client[]) {
 
 export const statusCounts = countStatuses(clients)
 
-export const DEFAULT_MESSAGE = `Olá, {nome}! 👋
+export function getDefaultMessage(segment: Segment) {
+  return getAiSuggestions(segment)[0]
+}
 
-Já está chegando aquela vontade de {produto_favorito}? 🍕
-
-Você costuma pedir a cada {frequencia_media} dias e já faz {dias_sem_pedir} dias desde sua última pizza.
-
-Que tal repetir seu pedido hoje?
-
-Estamos te esperando! ❤️`
+/** @deprecated use getDefaultMessage(segment) */
+export const DEFAULT_MESSAGE = getAiSuggestions('Pizzaria')[0]
 
 export const CAMPAIGN_PROMO_IMAGE = '/campaign-promo.jpg'
 

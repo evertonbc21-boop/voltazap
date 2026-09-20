@@ -1,19 +1,21 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, MoreHorizontal, Plus, Search, Send, Upload } from 'lucide-react'
-import { DEFAULT_MESSAGE, formatCurrency } from '../data/mock'
+import { formatCurrency, getDefaultMessage } from '../data/mock'
 import type { ClientStatus } from '../types'
 import { ClientCell } from '../components/ui/Avatar'
 import { ClientStatusBadge } from '../components/ui/StatusBadge'
 import { AddClientModal } from '../components/AddClientModal'
 import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
+import { useSettings } from '../context/SettingsContext'
 import { sendClientWhatsApp } from '../lib/whatsapp'
 
 const PAGE_SIZE = 10
 
 export function ClientsPage() {
   const { clients, statusCounts, addClient } = useClients()
+  const { settings } = useSettings()
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
@@ -30,8 +32,8 @@ export function ClientsPage() {
   const summaryCards = [
     { key: 'normal' as const, label: 'Clientes normais', hint: '(não contactar)', value: statusCounts.normal, icon: '👥', className: 'bg-emerald-50 border-emerald-100' },
     { key: 'proxima_compra' as const, label: 'Próxima compra', hint: '(contactar em breve)', value: statusCounts.proxima_compra, icon: '⏱️', className: 'bg-amber-50 border-amber-100' },
-    { key: 'atrasado' as const, label: 'Atrasados', hint: '(contactar agora)', value: statusCounts.atrasado, icon: '⚠️', className: 'bg-rose-50 border-rose-100' },
-    { key: 'muito_tempo' as const, label: 'Muito tempo sem comprar', hint: '(campanha especial)', value: statusCounts.muito_tempo, icon: '😴', className: 'bg-slate-100 border-slate-200' },
+    { key: 'atrasado' as const, label: 'Compra atrasada', hint: '(contactar agora)', value: statusCounts.atrasado, icon: '⚠️', className: 'bg-rose-50 border-rose-100' },
+    { key: 'muito_tempo' as const, label: 'Inativos', hint: '(campanha especial)', value: statusCounts.muito_tempo, icon: '😴', className: 'bg-slate-100 border-slate-200' },
   ]
 
   const filtered = useMemo(() => {
@@ -170,8 +172,8 @@ export function ClientsPage() {
               <option value="todos">Todos os status</option>
               <option value="normal">Normal</option>
               <option value="proxima_compra">Próxima compra</option>
-              <option value="atrasado">Atrasado</option>
-              <option value="muito_tempo">Muito tempo sem comprar</option>
+              <option value="atrasado">Compra atrasada</option>
+              <option value="muito_tempo">Inativos</option>
             </select>
             <ChevronDown size={14} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-slate-400" />
           </div>
@@ -267,7 +269,9 @@ export function ClientsPage() {
                     <div className="relative flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => sendClientWhatsApp(client, DEFAULT_MESSAGE)}
+                        onClick={() =>
+                          sendClientWhatsApp(client, getDefaultMessage(settings.segment), settings.segment)
+                        }
                         className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-brand"
                       >
                         <Send size={14} />
