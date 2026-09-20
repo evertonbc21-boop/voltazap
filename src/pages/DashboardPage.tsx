@@ -24,12 +24,15 @@ import { useSettings } from '../context/SettingsContext'
 import type { Segment } from '../context/SettingsContext'
 import { formatPlanPrice } from '../data/plans'
 import { AccountMenu } from '../components/AccountMenu'
+import { EmptyState } from '../components/EmptyState'
+import { OnboardingCard } from '../components/OnboardingCard'
 import { VoltaZapWordmark } from '../components/VoltaZapWordmark'
+import { trialDaysLeft } from '../lib/onboarding'
 
 export function DashboardPage() {
   const { clients, statusCounts, getClient } = useClients()
   const { messages, stats } = useMessages()
-  const { plan, account } = usePlan()
+  const { plan, account, trialEndsAt } = usePlan()
   const { settings } = useSettings()
   const [refreshing, setRefreshing] = useState(false)
   const used = Math.min(plan.clientsLimit, clients.length)
@@ -37,6 +40,8 @@ export function DashboardPage() {
     statusCounts.proxima_compra + statusCounts.atrasado + statusCounts.muito_tempo
   const greetingName = getGreetingName(settings.companyName, account?.nome)
   const businessLabel = getBusinessLabel(settings.segment)
+  const daysLeft = trialDaysLeft(trialEndsAt)
+  const isEmpty = clients.length === 0
   const [selectedDate, setSelectedDate] = useState(() => new Date())
   const today = useMemo(() => {
     const now = new Date()
@@ -101,6 +106,19 @@ export function DashboardPage() {
         </div>
       </header>
 
+      <OnboardingCard />
+
+      {daysLeft != null ? (
+        <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {daysLeft > 0
+            ? `Teste grátis: ${daysLeft} ${daysLeft === 1 ? 'dia restante' : 'dias restantes'}.`
+            : 'Seu teste grátis terminou. Escolha um plano para continuar.'}{' '}
+          <Link to="/planos" className="font-semibold underline">
+            Ver planos
+          </Link>
+        </p>
+      ) : null}
+
       <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -148,10 +166,23 @@ export function DashboardPage() {
         })}
       </section>
 
+      {isEmpty ? (
+        <EmptyState
+          icon={<Users size={28} />}
+          title="Sua conta está pronta — agora alimente com seus dados"
+          description="Cadastre o primeiro cliente (ou importe uma planilha). Os números do dashboard sobem conforme você usa o VoltaZap."
+          actionLabel="Cadastrar clientes"
+          actionTo="/clientes"
+        />
+      ) : null}
+
       <section className="grid gap-4 xl:grid-cols-[1.05fr_1.35fr]">
         <article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-800">Situação dos clientes</h3>
           <p className="text-sm text-slate-400">Total de {clients.length} clientes</p>
+          {isEmpty ? (
+            <p className="mt-8 text-center text-sm text-slate-400">Nenhum cliente ainda.</p>
+          ) : (
           <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row">
             <DonutChart
               slices={[
@@ -170,25 +201,34 @@ export function DashboardPage() {
               <Legend color="#94a3b8" label="Inativos" value={statusCounts.muito_tempo} />
             </ul>
           </div>
+          )}
         </article>
 
         <article className="rounded-2xl border border-rose-100 bg-gradient-to-r from-rose-50 to-white p-5 shadow-sm">
           <div className="max-w-md">
             <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white">🎯</div>
-            <h3 className="text-2xl font-bold text-slate-900">Recupere mais pedidos hoje!</h3>
+            <h3 className="text-2xl font-bold text-slate-900">
+              {isEmpty ? 'Comece cadastrando clientes' : 'Recupere mais pedidos hoje!'}
+            </h3>
             <p className="mt-2 text-slate-600">
-              Temos{' '}
-              <strong>
-                {readyToMessage} {readyToMessage === 1 ? 'cliente' : 'clientes'}
-              </strong>{' '}
-              prontos para receber sua mensagem.
+              {isEmpty ? (
+                'Quando tiver clientes na base, você cria campanhas e acompanha respostas por aqui.'
+              ) : (
+                <>
+                  Temos{' '}
+                  <strong>
+                    {readyToMessage} {readyToMessage === 1 ? 'cliente' : 'clientes'}
+                  </strong>{' '}
+                  prontos para receber sua mensagem.
+                </>
+              )}
             </p>
             <Link
-              to="/campanhas"
+              to={isEmpty ? '/clientes' : '/campanhas'}
               className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand/30 hover:bg-brand-dark"
             >
               <Send size={16} />
-              Enviar mensagens agora
+              {isEmpty ? 'Ir para Clientes' : 'Enviar mensagens agora'}
               <span aria-hidden>→</span>
             </Link>
           </div>
@@ -215,6 +255,17 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="overflow-x-auto scrollbar-thin">
+            {messages.filter((msg) => msg.direction !== 'inbound').length === 0 ? (
+              <div className="px-5 py-10">
+                <EmptyState
+                  icon={<MessageCircle size={28} />}
+                  title="Nenhuma mensagem enviada ainda"
+                  description="Depois da primeira campanha, o histórico aparece aqui."
+                  actionLabel={isEmpty ? 'Cadastrar clientes' : 'Criar campanha'}
+                  actionTo={isEmpty ? '/clientes' : '/campanhas'}
+                />
+              </div>
+            ) : (
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-slate-400">
                 <tr className="border-y border-slate-100">
@@ -252,6 +303,7 @@ export function DashboardPage() {
                 })}
               </tbody>
             </table>
+            )}
           </div>
         </article>
       </section>

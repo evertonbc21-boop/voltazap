@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, MoreHorizontal, Plus, Search, Send, Upload } from 'lucide-react'
+import { ChevronDown, MoreHorizontal, Plus, Search, Send, Upload, Users } from 'lucide-react'
 import { formatCurrency, getDefaultMessage } from '../data/mock'
 import type { ClientStatus } from '../types'
 import { ClientCell } from '../components/ui/Avatar'
 import { ClientStatusBadge } from '../components/ui/StatusBadge'
 import { AddClientModal } from '../components/AddClientModal'
+import { EmptyState } from '../components/EmptyState'
 import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
 import { useSettings } from '../context/SettingsContext'
@@ -111,9 +112,11 @@ export function ClientsPage() {
         <div>
           <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Clientes</h2>
           <p className="mt-1 text-slate-500">Gerencie seus clientes e veja quem está pronto para voltar a pedir.</p>
-          <p className="mt-2 max-w-2xl text-sm text-amber-700">
-            Para a mensagem chegar no WhatsApp de verdade, cadastre um cliente com o <strong>número real</strong> (com DDD) e clique em Enviar. Os números de exemplo da lista são fictícios.
-          </p>
+          {clients.length > 0 ? (
+            <p className="mt-2 max-w-2xl text-sm text-amber-700">
+              Para a mensagem chegar no WhatsApp de verdade, use o <strong>número real</strong> do cliente (com DDD).
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -216,6 +219,28 @@ export function ClientsPage() {
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        {clients.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              icon={<Users size={28} />}
+              title="Nenhum cliente cadastrado"
+              description="Adicione manualmente ou importe um CSV com colunas: nome, whatsapp, produto."
+              actionLabel="Adicionar cliente"
+              onAction={() => setAddOpen(true)}
+            />
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
+              >
+                <Upload size={14} />
+                Ou importar planilha (CSV)
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="overflow-x-auto scrollbar-thin">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="text-xs text-slate-400">
@@ -335,6 +360,8 @@ export function ClientsPage() {
           </p>
           <Pagination page={current} total={totalPages} onChange={setPage} />
         </div>
+        </>
+        )}
       </section>
       <AddClientModal
         open={addOpen}

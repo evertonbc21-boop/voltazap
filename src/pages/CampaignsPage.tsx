@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Check,
   ChevronDown,
@@ -373,6 +373,16 @@ export function CampaignsPage() {
           Modelos de mensagens
         </button>
       </header>
+
+      {clients.length === 0 ? (
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Você ainda não tem clientes. Cadastre pelo menos um em{' '}
+          <Link to="/clientes" className="font-semibold underline">
+            Clientes
+          </Link>{' '}
+          antes de enviar uma campanha.
+        </div>
+      ) : null}
 
       <ol className="grid gap-3 md:grid-cols-3">
         <Step

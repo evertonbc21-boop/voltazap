@@ -19,6 +19,7 @@ import { useClients } from '../../context/ClientsContext'
 import { usePlan } from '../../context/PlanContext'
 import { useSettings } from '../../context/SettingsContext'
 import { VoltaZapWordmark } from '../VoltaZapWordmark'
+import { trialDaysLeft } from '../../lib/onboarding'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: Home, end: true },
@@ -38,12 +39,13 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { clients } = useClients()
-  const { plan } = usePlan()
+  const { plan, trialEndsAt } = usePlan()
   const { settings } = useSettings()
   const { signOut } = useAuth()
   const used = Math.min(plan.clientsLimit, clients.length)
   const usage = Math.round((used / plan.clientsLimit) * 100)
   const segmentEmoji = getSegmentEmoji(settings.segment)
+  const daysLeft = trialDaysLeft(trialEndsAt)
 
   return (
     <>
@@ -104,6 +106,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 <p className="text-sm font-semibold text-white">{settings.companyName || 'Seu negócio'}</p>
                 <p className="text-xs text-slate-400">
                   {settings.segment} · Plano {plan.name}
+                  {daysLeft != null
+                    ? daysLeft > 0
+                      ? ` · ${daysLeft}d teste`
+                      : ' · teste encerrado'
+                    : ''}
                 </p>
               </div>
             </div>
@@ -153,10 +160,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 window.location.href = '/login'
               })
             }}
-            className="mt-1 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
+            className="mt-2 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-500/20 hover:border-rose-400/40"
           >
             <LogOut size={18} />
-            Sair
+            Sair da conta
           </button>
         </div>
       </aside>
