@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import {
   BUSINESS,
-  CAMPAIGN_PROMO_IMAGE,
   DEFAULT_MESSAGE,
   formatCurrency,
 } from '../data/mock'
@@ -178,8 +177,8 @@ export function DashboardPage() {
           </div>
         </article>
 
-        <article className="relative overflow-hidden rounded-2xl border border-rose-100 bg-gradient-to-r from-rose-50 to-white p-5 shadow-sm">
-          <div className="relative z-10 max-w-md">
+        <article className="rounded-2xl border border-rose-100 bg-gradient-to-r from-rose-50 to-white p-5 shadow-sm">
+          <div className="max-w-md">
             <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white">🎯</div>
             <h3 className="text-2xl font-bold text-slate-900">Recupere mais pedidos hoje!</h3>
             <p className="mt-2 text-slate-600">
@@ -198,16 +197,6 @@ export function DashboardPage() {
               <span aria-hidden>→</span>
             </Link>
           </div>
-          <img
-            src={CAMPAIGN_PROMO_IMAGE}
-            alt="Negócios locais"
-            className="pointer-events-none mt-6 h-40 w-full rounded-2xl object-cover xl:absolute xl:right-4 xl:top-6 xl:mt-0 xl:h-44 xl:w-56"
-          />
-          <p className="absolute right-8 top-4 hidden rotate-[-8deg] text-xs font-semibold text-white xl:block">
-            Mais clientes.
-            <br />
-            Mais vendas.
-          </p>
         </article>
       </section>
 
