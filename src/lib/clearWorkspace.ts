@@ -1,7 +1,7 @@
 import { DEMO_COMPANY_NAME, DEMO_OWNER_NAME, sanitizeCompanyName, sanitizePersonName } from './businessDisplay'
 
 const LAST_USER_KEY = 'voltazap-last-user-id'
-const DEMO_CLEANUP_KEY = 'voltazap-cleared-demo-v2'
+const DEMO_CLEANUP_KEY = 'voltazap-cleared-demo-v4'
 
 /** Limpa dados locais de demo/CRM (não remove a sessão Supabase). */
 export function clearLocalWorkspaceData(options?: { includeSettings?: boolean; includePlan?: boolean }) {
@@ -32,7 +32,7 @@ function scrubDemoSettings() {
       'voltazap-settings',
       JSON.stringify({
         ...parsed,
-        companyName: '',
+        companyName,
       }),
     )
   } catch {
@@ -50,6 +50,22 @@ function scrubDemoPlan() {
       trialEndsAt?: string | null
     }
     if (!parsed.account) return
+    const rawNegocio = (parsed.account.negocio || '').trim().toLowerCase()
+    const rawNome = (parsed.account.nome || '').trim().toLowerCase()
+    if (rawNegocio === 'saas ito' || rawNome === 'saas ito' || rawNome === 'saas') {
+      localStorage.setItem(
+        'voltazap-plan',
+        JSON.stringify({
+          ...parsed,
+          account: {
+            ...parsed.account,
+            nome: 'VoltaZap',
+            negocio: 'VoltaZap',
+          },
+        }),
+      )
+      return
+    }
     const nome = sanitizePersonName(parsed.account.nome)
     const negocio = sanitizeCompanyName(parsed.account.negocio)
     const looksDemo =

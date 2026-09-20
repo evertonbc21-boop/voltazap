@@ -9,7 +9,7 @@ import { getSegmentEmoji } from '../data/messageTemplates'
 import { displayCompanyName } from '../lib/businessDisplay'
 
 export function AccountMenu() {
-  const { plan } = usePlan()
+  const { plan, account } = usePlan()
   const { settings } = useSettings()
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
@@ -79,7 +79,7 @@ export function AccountMenu() {
     })
   }
 
-  const companyName = displayCompanyName(settings.companyName)
+  const companyName = displayCompanyName(settings.companyName || account?.negocio)
   const segmentEmoji = getSegmentEmoji(settings.segment)
 
   return (

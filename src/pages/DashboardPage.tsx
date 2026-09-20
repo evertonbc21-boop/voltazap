@@ -328,10 +328,18 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
 
 function getGreetingName(companyName: string, accountName?: string | null) {
   const company = sanitizeCompanyName(companyName)
-  // Só usa nome da conta depois que o negócio foi configurado
-  if (!company) return 'bem-vindo'
   const person = sanitizePersonName(accountName)
+
+  // Conta de teste "Saas Ito" → cumprimenta como VoltaZap
+  const rawAccount = (accountName || '').trim().toLowerCase()
+  const rawCompany = (companyName || '').trim().toLowerCase()
+  if (rawAccount === 'saas ito' || rawAccount === 'saas' || rawCompany === 'saas ito') {
+    return 'VoltaZap'
+  }
+
+  if (!company) return 'bem-vindo'
   if (person) return person.split(/\s+/)[0]
+  if (company.toLowerCase() === 'voltazap') return 'VoltaZap'
   const match = company.match(/\b(?:do|da|de)\s+(.+)$/i)
   if (match?.[1]) return match[1].trim().split(/\s+/)[0]
   return company.split(/\s+/)[0]
