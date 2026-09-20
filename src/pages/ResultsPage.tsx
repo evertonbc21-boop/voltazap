@@ -329,12 +329,6 @@ export function ResultsPage() {
               Você recuperou <strong>{stats.orders} pedidos</strong> e gerou{' '}
               <strong>{formatCurrency(stats.revenue)}</strong> em faturamento com esta campanha.
             </p>
-            <div className="mt-4 rounded-xl bg-white p-3 text-sm text-slate-700 shadow-sm">
-              “Everton, já faz 21 dias que você não pede sua Calabresa com Catupiry. Quer repetir hoje? 🍕”
-            </div>
-            <p className="mt-3 flex items-center gap-2 text-sm font-medium text-emerald-600">
-              ✓ Mensagem que mais gerou pedidos
-            </p>
           </article>
           <article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <h3 className="mb-4 font-semibold text-slate-800">Detalhes da campanha</h3>
