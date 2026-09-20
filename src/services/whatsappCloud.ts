@@ -81,8 +81,12 @@ export async function sendWhatsAppCloudText(input: {
 }
 
 /** Envia mensagem personalizada para um cliente via Cloud API. */
-export async function sendClientWhatsAppCloud(client: Client, template: string) {
-  const text = personalizeMessage(template, client)
+export async function sendClientWhatsAppCloud(
+  client: Client,
+  template: string,
+  segment?: import('../context/SettingsContext').Segment,
+) {
+  const text = personalizeMessage(template, client, segment)
   return sendWhatsAppCloudText({ to: client.whatsapp, text })
 }
 

@@ -1,4 +1,5 @@
 import type { Client } from '../types'
+import type { Segment } from '../context/SettingsContext'
 import { personalizeMessage } from '../data/mock'
 
 export function toWhatsAppPhone(whatsapp: string) {
@@ -21,6 +22,6 @@ export function openWhatsAppChat(whatsapp: string, text: string) {
   return true
 }
 
-export function sendClientWhatsApp(client: Client, template: string) {
-  return openWhatsAppChat(client.whatsapp, personalizeMessage(template, client))
+export function sendClientWhatsApp(client: Client, template: string, segment?: Segment) {
+  return openWhatsAppChat(client.whatsapp, personalizeMessage(template, client, segment))
 }

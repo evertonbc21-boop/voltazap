@@ -79,6 +79,13 @@ export function CampaignsPage() {
     }
   }, [preselectedId])
 
+  useEffect(() => {
+    if (messageMode !== 'ai') return
+    setMessage(getAiSuggestions(settings.segment)[0].slice(0, MAX_MESSAGE_LENGTH))
+    setSelectedTemplateId(null)
+    setAiHint('')
+  }, [settings.segment])
+
   const audienceCount = useMemo(() => {
     if (audience === 'personalizado') return selectedIds.length || 0
     if (audience === 'proxima_compra') return statusCounts.proxima_compra
@@ -87,7 +94,9 @@ export function CampaignsPage() {
   }, [audience, selectedIds, statusCounts])
 
   const previewClient = getClient(selectedIds[0] ?? 'c1') ?? clients[0]
-  const previewText = previewClient ? personalizeMessage(message, previewClient) : message
+  const previewText = previewClient
+    ? personalizeMessage(message, previewClient, settings.segment)
+    : message
 
   const recipients = useMemo(() => {
     if (audience === 'personalizado') {
@@ -191,7 +200,11 @@ export function CampaignsPage() {
 
     setSendBusy(true)
     try {
-      const result = await sendCampaignMessages({ clients: recipients, template: message })
+      const result = await sendCampaignMessages({
+        clients: recipients,
+        template: message,
+        segment: settings.segment,
+      })
       setSendProvider(result.provider)
 
       if (result.sent?.length) {
@@ -604,11 +617,11 @@ export function CampaignsPage() {
                     type="button"
                     className="shrink-0 text-sm font-semibold text-brand"
                     onClick={() => {
-                      sendClientWhatsApp(client, message)
+                      sendClientWhatsApp(client, message, settings.segment)
                       recordOutboundMessage({
                         clientId: client.id,
                         clientName: client.nome,
-                        text: personalizeMessage(message, client),
+                        text: personalizeMessage(message, client, settings.segment),
                         source: 'manual',
                       })
                       setQueue((current) => current.filter((item) => item.id !== client.id))

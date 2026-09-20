@@ -2,6 +2,7 @@ import { personalizeMessage } from '../data/mock'
 import { sendClientWhatsApp } from '../lib/whatsapp'
 import { sendClientWhatsAppCloud } from './whatsappCloud'
 import type { Client } from '../types'
+import type { Segment } from '../context/SettingsContext'
 
 export type CampaignSendResult = {
   queued: boolean
@@ -17,16 +18,21 @@ export type CampaignSendResult = {
 export async function sendCampaignMessages(payload: {
   clients: Client[]
   template: string
+  segment?: Segment
 }): Promise<CampaignSendResult> {
   if (!payload.clients.length) {
     return { queued: false, provider: 'whatsapp-web', remaining: [] }
   }
 
-  const firstCloud = await sendClientWhatsAppCloud(payload.clients[0], payload.template)
+  const firstCloud = await sendClientWhatsAppCloud(
+    payload.clients[0],
+    payload.template,
+    payload.segment,
+  )
 
   if (!firstCloud.ok && (firstCloud.fallbackSuggested || firstCloud.error === 'whatsapp_not_configured')) {
     const first = payload.clients[0]
-    sendClientWhatsApp(first, payload.template)
+    sendClientWhatsApp(first, payload.template, payload.segment)
     return {
       queued: true,
       provider: 'whatsapp-web',
@@ -47,13 +53,13 @@ export async function sendCampaignMessages(payload: {
     {
       clientId: payload.clients[0].id,
       waMessageId: firstCloud.waMessageId,
-      text: personalizeMessage(payload.template, payload.clients[0]),
+      text: personalizeMessage(payload.template, payload.clients[0], payload.segment),
       to: firstCloud.to,
     },
   ]
 
   for (const client of payload.clients.slice(1)) {
-    const result = await sendClientWhatsAppCloud(client, payload.template)
+    const result = await sendClientWhatsAppCloud(client, payload.template, payload.segment)
     if (!result.ok) {
       return {
         queued: true,
@@ -66,7 +72,7 @@ export async function sendCampaignMessages(payload: {
     sent.push({
       clientId: client.id,
       waMessageId: result.waMessageId,
-      text: personalizeMessage(payload.template, client),
+      text: personalizeMessage(payload.template, client, payload.segment),
       to: result.to,
     })
   }

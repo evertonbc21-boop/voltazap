@@ -1,4 +1,6 @@
 import type { AudienceKey, Client, ClientStatus, SentMessage, CampaignReply } from '../types'
+import type { Segment } from '../context/SettingsContext'
+import { favoriteForSegment } from './messageTemplates'
 
 export const BUSINESS = {
   name: 'VoltaZap',
@@ -441,10 +443,13 @@ export function daysWithoutOrder(ultimoPedido: string, today = new Date(2026, 8,
   return Math.max(1, Math.round((today.getTime() - last.getTime()) / 86400000))
 }
 
-export function personalizeMessage(template: string, client: Client) {
+export function personalizeMessage(template: string, client: Client, segment?: Segment) {
+  const product = segment
+    ? favoriteForSegment(client.produtoFavorito, segment)
+    : client.produtoFavorito
   return template
     .replaceAll('{nome}', client.nome)
-    .replaceAll('{produto_favorito}', client.produtoFavorito)
+    .replaceAll('{produto_favorito}', product)
     .replaceAll('{frequencia_media}', String(client.frequenciaMedia))
     .replaceAll('{dias_sem_pedir}', String(daysWithoutOrder(client.ultimoPedido)))
 }

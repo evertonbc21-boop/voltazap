@@ -38,6 +38,40 @@ export function getProductWord(segment: Segment) {
   return PRODUCT_WORD[segment]
 }
 
+/** Exemplos quando o cadastro ainda tem produto de outro segmento (ex.: seed de pizza). */
+const SAMPLE_FAVORITE: Partial<Record<Segment, string>> = {
+  Barbearia: 'corte degradê',
+  'Salão de beleza': 'hidratação',
+  Clínica: 'consulta de retorno',
+  'Pet Shop': 'banho e tosa',
+  Restaurante: 'prato da casa',
+  Hamburgueria: 'X-bacon',
+  Outro: 'serviço favorito',
+}
+
+const FOOD_SEED_RE =
+  /calabresa|portuguesa|marguerita|quatro queijos|frango com|pepperoni|pizza|catupiry|cheddar/i
+
+/** Produto/serviço favorito coerente com o segmento do negócio. */
+export function favoriteForSegment(produtoFavorito: string, segment: Segment): string {
+  const trimmed = (produtoFavorito || '').trim()
+  if (!trimmed || trimmed === '—') {
+    return SAMPLE_FAVORITE[segment] || PRODUCT_WORD[segment]
+  }
+
+  const isServiceSegment =
+    segment === 'Barbearia' ||
+    segment === 'Salão de beleza' ||
+    segment === 'Clínica' ||
+    segment === 'Pet Shop'
+
+  if (isServiceSegment && FOOD_SEED_RE.test(trimmed)) {
+    return SAMPLE_FAVORITE[segment] || trimmed
+  }
+
+  return trimmed
+}
+
 export function getAiSuggestions(segment: Segment): string[] {
   const product = PRODUCT_WORD[segment]
   const emoji = EMOJI[segment]
@@ -123,7 +157,14 @@ export function getMessageTemplates(segment: Segment): MessageTemplate[] {
     {
       id: 'rapido',
       title: 'Mensagem curta',
-      body: `Oi, {nome}! ${emoji} Já faz {dias_sem_pedir} dias sem o seu {produto_favorito}. Quer repetir o ${product} hoje?`,
+      body: `Oi, {nome}! ${emoji} Já faz {dias_sem_pedir} dias sem o seu {produto_favorito}. ${
+        segment === 'Barbearia' ||
+        segment === 'Salão de beleza' ||
+        segment === 'Clínica' ||
+        segment === 'Pet Shop'
+          ? 'Quer que eu reserve um horário?'
+          : `Quer repetir o ${product} hoje?`
+      }`,
     },
   ]
 }
