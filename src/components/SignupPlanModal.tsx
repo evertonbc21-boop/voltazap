@@ -23,7 +23,7 @@ const empty = {
 export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
   const navigate = useNavigate()
   const { startTrial } = usePlan()
-  const { signUp } = useAuth()
+  const { user, signUp } = useAuth()
   const { saveSettings, settings } = useSettings()
   const [form, setForm] = useState(empty)
   const [error, setError] = useState('')
@@ -40,6 +40,7 @@ export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
     setError('')
     setStep('form')
     setTrialEnd(null)
+    setBusy(false)
     onClose()
   }
 
@@ -60,22 +61,25 @@ export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
 
     setBusy(true)
     setError('')
-    const { error: authError, needsEmailConfirmation } = await signUp(form.email, form.senha, {
-      nome: form.nome.trim(),
-      negocio: form.negocio.trim(),
-      whatsapp: form.whatsapp,
-    })
-    if (authError) {
-      setBusy(false)
-      setError(authError)
-      return
-    }
-    if (needsEmailConfirmation) {
-      setBusy(false)
-      setError(
-        'Conta criada. Confirme o e-mail (ou desative “Confirm email” no Supabase Auth) e faça login.',
-      )
-      return
+
+    if (!user) {
+      const { error: authError, needsEmailConfirmation } = await signUp(form.email, form.senha, {
+        nome: form.nome.trim(),
+        negocio: form.negocio.trim(),
+        whatsapp: form.whatsapp,
+      })
+      if (authError) {
+        setBusy(false)
+        setError(authError)
+        return
+      }
+      if (needsEmailConfirmation) {
+        setBusy(false)
+        setError(
+          'Conta criada. Confirme o e-mail (ou desative “Confirm email” no Supabase Auth) e faça login.',
+        )
+        return
+      }
     }
 
     await ensureBusinessId({

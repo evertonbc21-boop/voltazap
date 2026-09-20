@@ -2,12 +2,27 @@ import { useState } from 'react'
 import { Check, Sparkles } from 'lucide-react'
 import { PLANS, formatPlanPrice } from '../data/plans'
 import { SignupPlanModal } from '../components/SignupPlanModal'
+import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../context/PlanContext'
 import type { PlanId } from '../data/plans'
 
 export function PlansPage() {
-  const { planId } = usePlan()
+  const { planId, selectPlan } = usePlan()
+  const { user } = useAuth()
   const [signupPlan, setSignupPlan] = useState<PlanId | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  function handleChoosePlan(nextId: PlanId) {
+    if (user) {
+      if (nextId === planId) return
+      selectPlan(nextId)
+      const name = PLANS.find((p) => p.id === nextId)?.name ?? 'plano'
+      setToast(`Plano ${name} selecionado.`)
+      window.setTimeout(() => setToast(null), 2500)
+      return
+    }
+    setSignupPlan(nextId)
+  }
 
   return (
     <div className="space-y-6">
@@ -16,6 +31,12 @@ export function PlansPage() {
         <p className="mt-1 text-slate-500">Escolha o plano certo para reativar seus clientes. Teste grátis por 7 dias.</p>
       </header>
 
+      {toast ? (
+        <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+          {toast}
+        </p>
+      ) : null}
+
       <section className="grid gap-4 lg:grid-cols-3">
         {PLANS.map((plan) => {
           const current = plan.id === planId
@@ -23,10 +44,14 @@ export function PlansPage() {
             <article
               key={plan.id}
               className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${
-                plan.popular ? 'border-brand ring-2 ring-brand/15' : 'border-slate-100'
+                current
+                  ? 'border-brand ring-2 ring-brand/20'
+                  : plan.popular
+                    ? 'border-brand/40 ring-1 ring-brand/10'
+                    : 'border-slate-100'
               }`}
             >
-              {plan.popular ? (
+              {plan.popular && !current ? (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand px-3 py-1 text-[11px] font-bold tracking-wide text-white">
                   ⭐ MAIS POPULAR
                 </span>
@@ -40,7 +65,9 @@ export function PlansPage() {
                   </p>
                 </div>
                 {current ? (
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">Atual</span>
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">
+                    Atual
+                  </span>
                 ) : null}
               </div>
               <ul className="mt-5 flex-1 space-y-2.5 text-sm text-slate-600">
@@ -52,14 +79,22 @@ export function PlansPage() {
                 ))}
               </ul>
               <button
-                onClick={() => setSignupPlan(plan.id)}
-                className={`mt-6 w-full rounded-xl py-3 text-sm font-semibold ${
-                  plan.popular
-                    ? 'bg-brand text-white shadow-lg shadow-brand/20 hover:bg-brand-dark'
-                    : 'border border-slate-200 text-slate-700 hover:border-brand hover:text-brand'
+                type="button"
+                disabled={Boolean(user) && current}
+                onClick={() => handleChoosePlan(plan.id)}
+                className={`mt-6 w-full rounded-xl py-3 text-sm font-semibold disabled:cursor-default disabled:opacity-70 ${
+                  current
+                    ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : plan.popular
+                      ? 'bg-brand text-white shadow-lg shadow-brand/20 hover:bg-brand-dark'
+                      : 'border border-slate-200 text-slate-700 hover:border-brand hover:text-brand'
                 }`}
               >
-                Começar agora
+                {user
+                  ? current
+                    ? 'Plano atual'
+                    : 'Escolher este plano'
+                  : 'Começar agora'}
               </button>
               <p className="mt-3 flex items-center justify-center gap-1 text-center text-xs text-slate-400">
                 <Sparkles size={12} />

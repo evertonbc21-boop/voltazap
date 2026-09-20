@@ -22,6 +22,7 @@ interface PlanContextValue {
   account: PlanAccount | null
   trialEndsAt: Date | null
   startTrial: (planId: PlanId, account: PlanAccount) => void
+  selectPlan: (planId: PlanId) => void
 }
 
 const PlanContext = createContext<PlanContextValue | null>(null)
@@ -55,6 +56,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
         const ends = new Date()
         ends.setDate(ends.getDate() + 7)
         setState({ planId, account, trialEndsAt: ends.toISOString() })
+      },
+      selectPlan: (planId) => {
+        setState((prev) => ({ ...prev, planId }))
       },
     }),
     [state],
