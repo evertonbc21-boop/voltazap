@@ -1,27 +1,25 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Check, Sparkles } from 'lucide-react'
 import { PLANS, formatPlanPrice } from '../data/plans'
 import { SignupPlanModal } from '../components/SignupPlanModal'
-import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../context/PlanContext'
 import type { PlanId } from '../data/plans'
 
 export function PlansPage() {
-  const { planId, account, selectPlan } = usePlan()
-  const { user } = useAuth()
+  const { planId, selectPlan } = usePlan()
+  const location = useLocation()
   const [signupPlan, setSignupPlan] = useState<PlanId | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
-  /** Já tem conta/sessão: só troca o plano. Senão: abre cadastro. */
-  const canSwitchPlan = Boolean(user || account)
+  /** Em /cadastro abre o formulário; em /planos só troca o plano. */
+  const isPublicSignup = location.pathname === '/cadastro'
 
   function handleChoosePlan(nextId: PlanId) {
     const name = PLANS.find((p) => p.id === nextId)?.name ?? 'plano'
-
-    // Sempre atualiza o plano selecionado (feedback imediato no card "Atual")
     selectPlan(nextId)
 
-    if (!canSwitchPlan) {
+    if (isPublicSignup) {
       setSignupPlan(nextId)
       return
     }
@@ -112,11 +110,11 @@ export function PlansPage() {
                       : 'border border-slate-200 text-slate-700 hover:border-brand hover:text-brand'
                 }`}
               >
-                {canSwitchPlan
-                  ? current
+                {isPublicSignup
+                  ? 'Começar agora'
+                  : current
                     ? 'Plano atual'
-                    : 'Escolher este plano'
-                  : 'Começar agora'}
+                    : 'Escolher este plano'}
               </button>
               <p className="mt-3 flex items-center justify-center gap-1 text-center text-xs text-slate-400">
                 <Sparkles size={12} />
