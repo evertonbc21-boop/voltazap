@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { BUSINESS } from '../../data/mock'
 import { getSegmentEmoji } from '../../data/messageTemplates'
+import { useAuth } from '../../context/AuthContext'
 import { useClients } from '../../context/ClientsContext'
 import { usePlan } from '../../context/PlanContext'
 import { useSettings } from '../../context/SettingsContext'
@@ -39,6 +40,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { clients } = useClients()
   const { plan } = usePlan()
   const { settings } = useSettings()
+  const { signOut } = useAuth()
   const used = Math.min(plan.clientsLimit, clients.length)
   const usage = Math.round((used / plan.clientsLimit) * 100)
   const segmentEmoji = getSegmentEmoji(settings.segment)
@@ -145,13 +147,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <button
             type="button"
             onClick={() => {
-              const ok = window.confirm('Sair da conta demo e limpar dados locais?')
+              const ok = window.confirm('Sair da conta e limpar dados locais deste navegador?')
               if (!ok) return
-              localStorage.removeItem('voltazap-settings')
-              localStorage.removeItem('voltazap-plan')
-              localStorage.removeItem('voltazap-clients')
-              localStorage.removeItem('voltazap-replies')
-              window.location.href = '/login'
+              void signOut().then(() => {
+                window.location.href = '/login'
+              })
             }}
             className="mt-1 flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
           >

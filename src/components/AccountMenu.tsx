@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ChevronDown, CreditCard, LogOut, Settings } from 'lucide-react'
 import { BUSINESS } from '../data/mock'
+import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../context/PlanContext'
 import { useSettings } from '../context/SettingsContext'
 import { getSegmentEmoji } from '../data/messageTemplates'
@@ -10,6 +11,7 @@ import { getSegmentEmoji } from '../data/messageTemplates'
 export function AccountMenu() {
   const { plan } = usePlan()
   const { settings } = useSettings()
+  const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 224 })
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -70,13 +72,11 @@ export function AccountMenu() {
   }, [open])
 
   function handleLogout() {
-    const ok = window.confirm('Sair da conta demo e limpar dados locais?')
+    const ok = window.confirm('Sair da conta e limpar dados locais deste navegador?')
     if (!ok) return
-    localStorage.removeItem('voltazap-settings')
-    localStorage.removeItem('voltazap-plan')
-    localStorage.removeItem('voltazap-clients')
-    localStorage.removeItem('voltazap-replies')
-    window.location.href = '/login'
+    void signOut().then(() => {
+      window.location.href = '/login'
+    })
   }
 
   const companyName = settings.companyName || BUSINESS.company

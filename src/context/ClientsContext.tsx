@@ -1,12 +1,22 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AVATAR_COLORS, clients as seedClients, countStatuses } from '../data/mock'
+import { useAuth } from './AuthContext'
+import {
+  clearStoredBusinessId,
+  ensureBusinessId,
+  fetchClientsForBusiness,
+  upsertClientRemote,
+  upsertClientsRemote,
+} from '../lib/clientsApi'
 import { findClientByPhone, normalizeClientPhone } from '../lib/phoneMatch'
+import { isSupabaseConfigured } from '../lib/supabase'
 import type { Client } from '../types'
 
 const STORAGE_KEY = 'voltazap-clients'
 
 interface ClientsContextValue {
   clients: Client[]
+  loading: boolean
   addClient: (input: Omit<Client, 'id' | 'avatarColor'>) => Client
   getClient: (id: string) => Client | undefined
   findByPhone: (phone: string | null | undefined) => Client | undefined
@@ -31,7 +41,6 @@ function loadClients(): Client[] {
   }
 }
 
-/** Persistência síncrona — evita perder cliente WhatsApp se a página recarregar antes do useEffect. */
 function persistClients(next: Client[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
@@ -55,7 +64,6 @@ function buildWhatsAppClient(phone: string, name: string | undefined, colorIndex
   }
 }
 
-/** Recupera clientes referidos em replies/messages do localStorage (órfãos após refresh). */
 function hydrateFromStoredReplies(clients: Client[]): Client[] {
   try {
     const raw = localStorage.getItem('voltazap-replies')
@@ -105,13 +113,74 @@ function formatWhatsAppDisplay(phone: string) {
 }
 
 export function ClientsProvider({ children }: { children: ReactNode }) {
+  const { user, loading: authLoading } = useAuth()
   const [clients, setClients] = useState<Client[]>(() => hydrateFromStoredReplies(loadClients()))
+  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const businessIdRef = useRef<string | null>(null)
+  const clientsRef = useRef(clients)
+  clientsRef.current = clients
 
   useEffect(() => {
     persistClients(clients)
   }, [clients])
 
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setLoading(false)
+      return
+    }
+    if (authLoading) return
+
+    if (!user) {
+      businessIdRef.current = null
+      clearStoredBusinessId()
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+
+    ;(async () => {
+      try {
+        const businessId = await ensureBusinessId()
+        if (cancelled || !businessId) return
+        businessIdRef.current = businessId
+
+        const remote = await fetchClientsForBusiness(businessId)
+        if (cancelled || !remote) return
+
+        if (remote.length > 0) {
+          persistClients(remote)
+          setClients(remote)
+          return
+        }
+
+        const local = clientsRef.current
+        const looksLikeSeedOnly =
+          local.length > 0 && local.every((c) => seedClients.some((s) => s.id === c.id))
+        if (local.length > 0 && !looksLikeSeedOnly) {
+          await upsertClientsRemote(local, businessId)
+        }
+      } catch (error) {
+        console.error('supabase clients sync failed', error)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, authLoading])
+
   const value = useMemo<ClientsContextValue>(() => {
+    const syncRemote = (client: Client) => {
+      const businessId = businessIdRef.current
+      if (!businessId) return
+      void upsertClientRemote(client, businessId)
+    }
+
     const addClient = (input: Omit<Client, 'id' | 'avatarColor'>) => {
       const client: Client = {
         ...input,
@@ -121,6 +190,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
       const next = [client, ...clients]
       persistClients(next)
       setClients(next)
+      syncRemote(client)
       return client
     }
 
@@ -129,12 +199,6 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     const ensureClientFromWhatsApp = (input: { phone: string; name?: string }) => {
       const existing = findClientByPhone(clients, input.phone)
       if (existing) {
-        console.log('whatsapp webhook client matched', {
-          phone: input.phone,
-          clientId: existing.id,
-          name: existing.nome,
-          created: false,
-        })
         return { client: existing, created: false }
       }
 
@@ -146,27 +210,22 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
         }
         return [client, ...current]
       })()
-      // Grava ANTES do ingest/ACK — sem isso a mensagem some na UI após refresh
       persistClients(next)
       setClients(next)
-      console.log('whatsapp webhook client matched', {
-        phone: input.phone,
-        clientId: client.id,
-        name: client.nome,
-        created: true,
-      })
+      syncRemote(client)
       return { client, created: true }
     }
 
     return {
       clients,
+      loading,
       addClient,
       getClient: (id) => clients.find((c) => c.id === id),
       findByPhone,
       ensureClientFromWhatsApp,
       statusCounts: countStatuses(clients),
     }
-  }, [clients])
+  }, [clients, loading])
 
   return <ClientsContext.Provider value={value}>{children}</ClientsContext.Provider>
 }

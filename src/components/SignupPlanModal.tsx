@@ -2,7 +2,10 @@ import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { addDays, formatPlanPrice, formatTrialDate, getPlan, type PlanId } from '../data/plans'
+import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../context/PlanContext'
+import { useSettings } from '../context/SettingsContext'
+import { ensureBusinessId } from '../lib/clientsApi'
 
 interface SignupPlanModalProps {
   planId: PlanId | null
@@ -20,8 +23,11 @@ const empty = {
 export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
   const navigate = useNavigate()
   const { startTrial } = usePlan()
+  const { signUp } = useAuth()
+  const { saveSettings, settings } = useSettings()
   const [form, setForm] = useState(empty)
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   const [step, setStep] = useState<'form' | 'done'>('form')
   const [trialEnd, setTrialEnd] = useState<Date | null>(null)
 
@@ -37,7 +43,7 @@ export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
     onClose()
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault()
     if (!form.nome.trim() || !form.negocio.trim() || !form.email.trim() || !form.senha.trim()) {
       setError('Preencha todos os campos.')
@@ -51,6 +57,37 @@ export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
       setError('A senha deve ter pelo menos 6 caracteres.')
       return
     }
+
+    setBusy(true)
+    setError('')
+    const { error: authError, needsEmailConfirmation } = await signUp(form.email, form.senha, {
+      nome: form.nome.trim(),
+      negocio: form.negocio.trim(),
+      whatsapp: form.whatsapp,
+    })
+    if (authError) {
+      setBusy(false)
+      setError(authError)
+      return
+    }
+    if (needsEmailConfirmation) {
+      setBusy(false)
+      setError(
+        'Conta criada. Confirme o e-mail (ou desative “Confirm email” no Supabase Auth) e faça login.',
+      )
+      return
+    }
+
+    await ensureBusinessId({
+      name: form.negocio.trim(),
+      whatsapp: form.whatsapp,
+      segment: settings.segment,
+    })
+    saveSettings({
+      ...settings,
+      companyName: form.negocio.trim(),
+      whatsapp: form.whatsapp,
+    })
     startTrial(selectedPlanId, {
       nome: form.nome.trim(),
       negocio: form.negocio.trim(),
@@ -58,6 +95,7 @@ export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
       email: form.email.trim(),
     })
     setTrialEnd(addDays(new Date(), 7))
+    setBusy(false)
     setStep('done')
   }
 
@@ -84,7 +122,7 @@ export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
         </div>
 
         {step === 'form' ? (
-          <form onSubmit={submit} className="space-y-3">
+          <form onSubmit={(e) => void submit(e)} className="space-y-3">
             <div className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-slate-700">
               Plano escolhido: <strong>{plan.name}</strong> · {formatPlanPrice(plan.price)} · 7 dias grátis
             </div>
@@ -116,8 +154,12 @@ export function SignupPlanModal({ planId, onClose }: SignupPlanModalProps) {
               placeholder="Mínimo 6 caracteres"
             />
             {error ? <p className="text-sm text-red-500">{error}</p> : null}
-            <button type="submit" className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white hover:bg-brand-dark">
-              Continuar
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
+            >
+              {busy ? 'Criando conta…' : 'Continuar'}
             </button>
           </form>
         ) : (
