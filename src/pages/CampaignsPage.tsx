@@ -70,7 +70,11 @@ export function CampaignsPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const campaignStartRef = useRef<HTMLDivElement>(null)
+  const stepAudienceRef = useRef<HTMLElement>(null)
+  const stepMessageRef = useRef<HTMLElement>(null)
+  const stepReviewRef = useRef<HTMLElement>(null)
   const aiRequestId = useRef(0)
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1)
 
   const templates = useMemo(() => getMessageTemplates(settings.segment), [settings.segment])
   const segmentEmoji = getSegmentEmoji(settings.segment)
@@ -302,9 +306,16 @@ export function CampaignsPage() {
     }
   }
 
-  function handleReviewCampaign() {
+  function scrollToStep(step: 1 | 2 | 3) {
+    setActiveStep(step)
     setSendError('')
-    campaignStartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const target =
+      step === 1 ? stepAudienceRef.current : step === 2 ? stepMessageRef.current : stepReviewRef.current
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function handleReviewCampaign() {
+    scrollToStep(1)
   }
 
   return (
@@ -328,15 +339,36 @@ export function CampaignsPage() {
       </header>
 
       <ol className="grid gap-3 md:grid-cols-3">
-        <Step n={1} title="Público" subtitle="Quem vai receber" active />
-        <Step n={2} title="Mensagem" subtitle="Personalize ou use a sugestão da IA" />
-        <Step n={3} title="Revisar" subtitle="Confira e envie" />
+        <Step
+          n={1}
+          title="Público"
+          subtitle="Quem vai receber"
+          active={activeStep === 1}
+          onClick={() => scrollToStep(1)}
+        />
+        <Step
+          n={2}
+          title="Mensagem"
+          subtitle="Personalize ou use a sugestão da IA"
+          active={activeStep === 2}
+          onClick={() => scrollToStep(2)}
+        />
+        <Step
+          n={3}
+          title="Revisar"
+          subtitle="Confira e envie"
+          active={activeStep === 3}
+          onClick={() => scrollToStep(3)}
+        />
       </ol>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <section
+            ref={stepAudienceRef}
+            className="scroll-mt-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"
+          >
             <h3 className="text-lg font-semibold text-slate-800">1. Selecione o público</h3>
             <p className="mb-4 text-sm text-slate-400">Escolha quais clientes vão receber esta campanha.</p>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -392,7 +424,10 @@ export function CampaignsPage() {
             ) : null}
           </section>
 
-          <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <section
+            ref={stepMessageRef}
+            className="scroll-mt-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"
+          >
             <h3 className="text-lg font-semibold text-slate-800">2. Crie a mensagem</h3>
             <p className="mb-4 text-sm text-slate-400">
               Use a sugestão da IA ou personalize do seu jeito.
@@ -494,7 +529,7 @@ export function CampaignsPage() {
             </div>
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section ref={stepReviewRef} className="scroll-mt-4 grid gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
               <h3 className="text-lg font-semibold text-slate-800">3. Agendamento</h3>
               <p className="mb-4 text-sm text-slate-400">Envie agora ou programe para um melhor horário.</p>
@@ -727,16 +762,40 @@ export function CampaignsPage() {
   )
 }
 
-function Step({ n, title, subtitle, active }: { n: number; title: string; subtitle: string; active?: boolean }) {
+function Step({
+  n,
+  title,
+  subtitle,
+  active,
+  onClick,
+}: {
+  n: number
+  title: string
+  subtitle: string
+  active?: boolean
+  onClick?: () => void
+}) {
   return (
-    <li className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
-      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${active ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}>
-        {n}
-      </span>
-      <span>
-        <span className="block text-sm font-semibold text-slate-800">{title}</span>
-        <span className="text-xs text-slate-400">{subtitle}</span>
-      </span>
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-sm transition hover:ring-2 hover:ring-brand/30 ${
+          active ? 'ring-2 ring-brand/40' : ''
+        }`}
+      >
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+            active ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'
+          }`}
+        >
+          {n}
+        </span>
+        <span>
+          <span className="block text-sm font-semibold text-slate-800">{title}</span>
+          <span className="text-xs text-slate-400">{subtitle}</span>
+        </span>
+      </button>
     </li>
   )
 }
