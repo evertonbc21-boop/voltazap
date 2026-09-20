@@ -504,11 +504,6 @@ export function CampaignsPage() {
                 {sendBusy ? 'Enviando…' : 'Enviar campanha'}
               </button>
               {sendError ? <p className="mt-2 text-center text-xs text-red-500">{sendError}</p> : null}
-              <p className="mt-2 text-center text-xs text-slate-400">
-                {sendProvider === 'meta_cloud'
-                  ? 'Enviado pela WhatsApp Cloud API. Respostas entram em Mensagens e Resultados.'
-                  : 'Com Cloud API configurada, envia direto. Sem token, abre o WhatsApp Web como fallback.'}
-              </p>
             </div>
           </section>
         </div>
