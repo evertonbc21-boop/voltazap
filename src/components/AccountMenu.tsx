@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../context/PlanContext'
 import { useSettings } from '../context/SettingsContext'
 import { getSegmentEmoji } from '../data/messageTemplates'
+import { displayCompanyName } from '../lib/businessDisplay'
 
 export function AccountMenu() {
   const { plan } = usePlan()
@@ -78,7 +79,7 @@ export function AccountMenu() {
     })
   }
 
-  const companyName = settings.companyName || 'Seu negócio'
+  const companyName = displayCompanyName(settings.companyName)
   const segmentEmoji = getSegmentEmoji(settings.segment)
 
   return (

@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
+import { sanitizeCompanyName } from '../lib/businessDisplay'
+import { runDemoCleanupOnce } from '../lib/clearWorkspace'
 
 export const SEGMENTS = [
   'Pizzaria',
@@ -38,12 +40,13 @@ interface SettingsContextValue {
 const SettingsContext = createContext<SettingsContextValue | null>(null)
 
 function loadSettings(): BusinessSettings {
+  runDemoCleanupOnce()
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULT_SETTINGS
     const parsed = JSON.parse(raw) as Partial<BusinessSettings>
     return {
-      companyName: parsed.companyName?.trim() || '',
+      companyName: sanitizeCompanyName(parsed.companyName),
       segment: SEGMENTS.includes(parsed.segment as Segment)
         ? (parsed.segment as Segment)
         : DEFAULT_SETTINGS.segment,
@@ -65,13 +68,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // Após login, recupera nome do negócio do perfil Auth (conta nova / outro device)
   useEffect(() => {
     if (!user) return
-    const negocio =
-      typeof user.user_metadata?.negocio === 'string' ? user.user_metadata.negocio.trim() : ''
+    const negocio = sanitizeCompanyName(
+      typeof user.user_metadata?.negocio === 'string' ? user.user_metadata.negocio : '',
+    )
     const whatsapp =
       typeof user.user_metadata?.whatsapp === 'string' ? user.user_metadata.whatsapp : ''
     if (!negocio) return
     setSettings((prev) => {
-      if (prev.companyName.trim()) return prev
+      if (sanitizeCompanyName(prev.companyName)) return prev
       return {
         ...prev,
         companyName: negocio,
@@ -85,7 +89,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       settings,
       saveSettings: (next) =>
         setSettings({
-          companyName: next.companyName.trim(),
+          companyName: sanitizeCompanyName(next.companyName),
           segment: next.segment,
           whatsapp: next.whatsapp,
         }),

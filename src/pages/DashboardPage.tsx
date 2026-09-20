@@ -27,6 +27,7 @@ import { AccountMenu } from '../components/AccountMenu'
 import { EmptyState } from '../components/EmptyState'
 import { OnboardingCard } from '../components/OnboardingCard'
 import { VoltaZapWordmark } from '../components/VoltaZapWordmark'
+import { isBusinessConfigured, sanitizeCompanyName, sanitizePersonName } from '../lib/businessDisplay'
 import { trialDaysLeft } from '../lib/onboarding'
 
 export function DashboardPage() {
@@ -39,7 +40,9 @@ export function DashboardPage() {
   const readyToMessage =
     statusCounts.proxima_compra + statusCounts.atrasado + statusCounts.muito_tempo
   const greetingName = getGreetingName(settings.companyName, account?.nome)
-  const businessLabel = getBusinessLabel(settings.segment)
+  const businessLabel = isBusinessConfigured(settings.companyName)
+    ? getBusinessLabel(settings.segment)
+    : 'do seu negócio'
   const daysLeft = trialDaysLeft(trialEndsAt)
   const isEmpty = clients.length === 0
   const [selectedDate, setSelectedDate] = useState(() => new Date())
@@ -324,12 +327,14 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
 }
 
 function getGreetingName(companyName: string, accountName?: string | null) {
-  if (accountName?.trim()) return accountName.trim().split(/\s+/)[0]
-  const match = companyName.match(/\b(?:do|da|de)\s+(.+)$/i)
+  const company = sanitizeCompanyName(companyName)
+  // Só usa nome da conta depois que o negócio foi configurado
+  if (!company) return 'bem-vindo'
+  const person = sanitizePersonName(accountName)
+  if (person) return person.split(/\s+/)[0]
+  const match = company.match(/\b(?:do|da|de)\s+(.+)$/i)
   if (match?.[1]) return match[1].trim().split(/\s+/)[0]
-  const cleaned = companyName.trim()
-  if (!cleaned) return 'bem-vindo'
-  return cleaned.split(/\s+/)[0]
+  return company.split(/\s+/)[0]
 }
 
 function getBusinessLabel(segment: Segment) {

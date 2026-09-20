@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getPlan, type PlanId } from '../data/plans'
+import { sanitizeCompanyName, sanitizePersonName } from '../lib/businessDisplay'
+import { runDemoCleanupOnce } from '../lib/clearWorkspace'
 
 const STORAGE_KEY = 'voltazap-plan'
 
@@ -28,12 +30,22 @@ interface PlanContextValue {
 const PlanContext = createContext<PlanContextValue | null>(null)
 
 function loadPlan(): StoredPlan {
+  runDemoCleanupOnce()
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { planId: 'profissional', account: null, trialEndsAt: null }
     const parsed = JSON.parse(raw) as StoredPlan
     if (!parsed.planId) return { planId: 'profissional', account: null, trialEndsAt: null }
-    return parsed
+    if (!parsed.account) return parsed
+    const nome = sanitizePersonName(parsed.account.nome)
+    const negocio = sanitizeCompanyName(parsed.account.negocio)
+    if (!nome || !negocio) {
+      return { ...parsed, account: null }
+    }
+    return {
+      ...parsed,
+      account: { ...parsed.account, nome, negocio },
+    }
   } catch {
     return { planId: 'profissional', account: null, trialEndsAt: null }
   }

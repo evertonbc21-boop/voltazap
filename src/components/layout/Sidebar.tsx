@@ -19,6 +19,7 @@ import { useClients } from '../../context/ClientsContext'
 import { usePlan } from '../../context/PlanContext'
 import { useSettings } from '../../context/SettingsContext'
 import { VoltaZapWordmark } from '../VoltaZapWordmark'
+import { displayCompanyName } from '../../lib/businessDisplay'
 import { trialDaysLeft } from '../../lib/onboarding'
 
 const nav = [
@@ -103,7 +104,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 {segmentEmoji}
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">{settings.companyName || 'Seu negócio'}</p>
+                <p className="text-sm font-semibold text-white">{displayCompanyName(settings.companyName)}</p>
                 <p className="text-xs text-slate-400">
                   {settings.segment} · Plano {plan.name}
                   {daysLeft != null
