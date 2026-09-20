@@ -62,11 +62,11 @@ export function DashboardPage() {
   }
 
   const kpis = [
-    { label: 'Clientes cadastrados', value: String(clients.length), delta: '+12%', icon: Users, iconBg: 'bg-sky-50 text-sky-500', highlight: false },
-    { label: 'Mensagens enviadas', value: String(messages.length), delta: '+23%', icon: Send, iconBg: 'bg-emerald-50 text-emerald-500', highlight: false },
-    { label: 'Respostas recebidas', value: String(stats.totalReplies), delta: '+12%', icon: MessageCircle, iconBg: 'bg-violet-50 text-violet-500', highlight: false },
-    { label: 'Pedidos recuperados', value: String(stats.orders), delta: '+37%', icon: Pizza, iconBg: 'bg-orange-50 text-orange-500', highlight: false },
-    { label: 'Faturamento recuperado', value: formatCurrency(stats.revenue), delta: '+41%', icon: CircleDollarSign, iconBg: 'bg-emerald-50 text-emerald-600', highlight: true },
+    { label: 'Clientes cadastrados', value: String(clients.length), icon: Users, iconBg: 'bg-sky-50 text-sky-500', highlight: false },
+    { label: 'Mensagens enviadas', value: String(messages.length), icon: Send, iconBg: 'bg-emerald-50 text-emerald-500', highlight: false },
+    { label: 'Respostas recebidas', value: String(stats.totalReplies), icon: MessageCircle, iconBg: 'bg-violet-50 text-violet-500', highlight: false },
+    { label: 'Pedidos recuperados', value: String(stats.orders), icon: Pizza, iconBg: 'bg-orange-50 text-orange-500', highlight: false },
+    { label: 'Faturamento recuperado', value: formatCurrency(stats.revenue), icon: CircleDollarSign, iconBg: 'bg-emerald-50 text-emerald-600', highlight: true },
   ]
 
   return (
@@ -145,9 +145,6 @@ export function DashboardPage() {
               </div>
               <p className="text-2xl font-bold text-slate-900">{kpi.value}</p>
               <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">{kpi.label}</p>
-              <p className={`mt-2 text-xs font-semibold ${kpi.highlight ? 'text-emerald-600' : 'text-emerald-500'}`}>
-                {kpi.delta} <span className="font-normal text-slate-400">vs. mês anterior</span>
-              </p>
             </article>
           )
         })}
