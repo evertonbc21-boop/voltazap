@@ -121,18 +121,40 @@ export function CampaignsPage() {
     audienceCount === 1 ? 'cliente' : 'clientes'
   })`
   const sentByLabel = `${account?.nome || settings.companyName || BUSINESS.company} (Você)`
-  const sendAtLabel = sendNow
-    ? 'Ao enviar'
-    : scheduledAt
-      ? new Date(scheduledAt).toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : 'Agendar (definir data)'
-  const finishedAtLabel = 'Após o envio'
+
+  const { startedAtLabel, finishedAtLabel } = useMemo(() => {
+    const formatDateTime = (date: Date) =>
+      date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+
+    const start =
+      !sendNow && scheduledAt
+        ? new Date(scheduledAt)
+        : new Date()
+
+    if (Number.isNaN(start.getTime())) {
+      return {
+        startedAtLabel: 'Definir data no agendamento',
+        finishedAtLabel: '—',
+      }
+    }
+
+    const finish = new Date(start)
+    finish.setHours(20, 15, 0, 0)
+    if (finish.getTime() <= start.getTime()) {
+      finish.setTime(start.getTime() + 10 * 60 * 60 * 1000)
+    }
+
+    return {
+      startedAtLabel: formatDateTime(start),
+      finishedAtLabel: formatDateTime(finish),
+    }
+  }, [sendNow, scheduledAt])
 
   function applyMessage(next: string, mode: MessageMode, templateId: string | null = null) {
     setMessage(next.slice(0, MAX_MESSAGE_LENGTH))
@@ -522,8 +544,8 @@ export function CampaignsPage() {
                   <dd className="max-w-[60%] text-right font-semibold text-slate-800">{messageModeLabel}</dd>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <dt className="text-slate-400">Enviada em</dt>
-                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{sendAtLabel}</dd>
+                  <dt className="text-slate-400">Precisa ser iniciada em</dt>
+                  <dd className="max-w-[60%] text-right font-semibold text-slate-800">{startedAtLabel}</dd>
                 </div>
                 <div className="flex items-start justify-between gap-4">
                   <dt className="text-slate-400">Finalizada em</dt>
