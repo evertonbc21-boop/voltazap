@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Send,
   Sparkles,
-  Users,
   Wallet,
   X,
 } from 'lucide-react'
