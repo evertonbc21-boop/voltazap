@@ -34,6 +34,29 @@ export function getSegmentEmoji(segment: Segment) {
   return EMOJI[segment]
 }
 
+/** Nome padrão de campanha coerente com o segmento do negócio. */
+export function getCampaignDisplayName(segment: Segment): string {
+  const emoji = EMOJI[segment]
+  switch (segment) {
+    case 'Pizzaria':
+      return `Saudade da sua pizza? ${emoji}`
+    case 'Restaurante':
+      return `Saudade do seu prato favorito? ${emoji}`
+    case 'Hamburgueria':
+      return `Saudade do seu hambúrguer? ${emoji}`
+    case 'Barbearia':
+      return `Hora de marcar o próximo corte? ${emoji}`
+    case 'Salão de beleza':
+      return `Hora de cuidar de você? ${emoji}`
+    case 'Clínica':
+      return `Hora de agendar seu retorno? ${emoji}`
+    case 'Pet Shop':
+      return `Hora de cuidar do seu pet? ${emoji}`
+    default:
+      return `Sentimos sua falta! ${emoji}`
+  }
+}
+
 export function getProductWord(segment: Segment) {
   return PRODUCT_WORD[segment]
 }

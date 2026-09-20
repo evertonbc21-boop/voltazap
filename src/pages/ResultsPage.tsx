@@ -11,6 +11,7 @@ import { RegisterReplyModal } from '../components/RegisterReplyModal'
 import { useClients } from '../context/ClientsContext'
 import { useMessages } from '../context/MessagesContext'
 import { useSettings } from '../context/SettingsContext'
+import { getCampaignDisplayName, getSegmentEmoji } from '../data/messageTemplates'
 import { resolveDisplayClient } from '../lib/resolveDisplayClient'
 import type { ReplyOutcome } from '../types'
 
@@ -26,9 +27,11 @@ export function ResultsPage() {
   const [replyQuery, setReplyQuery] = useState('')
   const [outcomeFilter, setOutcomeFilter] = useState<'todos' | ReplyOutcome>('todos')
   const [registerOpen, setRegisterOpen] = useState(false)
-  const { getClient } = useClients()
+  const { getClient, statusCounts } = useClients()
   const { settings } = useSettings()
   const { replies, messages, stats } = useMessages()
+  const campaignName = getCampaignDisplayName(settings.segment)
+  const segmentEmoji = getSegmentEmoji(settings.segment)
 
   const sentCount = Math.max(messages.length, 45)
   const delivered = Math.max(
@@ -130,9 +133,9 @@ export function ResultsPage() {
 
       <section className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-xl">🍕</div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-xl">{segmentEmoji}</div>
           <div>
-            <h3 className="font-semibold text-slate-800">Campanha - Saudade da sua pizza? 🍕</h3>
+            <h3 className="font-semibold text-slate-800">Campanha - {campaignName}</h3>
             <p className="text-sm text-slate-400">Enviada em 13 de setembro de 2026 às 10:00</p>
           </div>
         </div>
@@ -336,8 +339,11 @@ export function ResultsPage() {
           <article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <h3 className="mb-4 font-semibold text-slate-800">Detalhes da campanha</h3>
             <dl className="space-y-3 text-sm">
-              <Row label="Nome da campanha" value="Saudade da sua pizza? 🍕" />
-              <Row label="Público" value="Clientes atrasados (25 clientes)" />
+              <Row label="Nome da campanha" value={campaignName} />
+              <Row
+                label="Público"
+                value={`Compra atrasada (${statusCounts.atrasado} ${statusCounts.atrasado === 1 ? 'cliente' : 'clientes'})`}
+              />
               <Row label="Mensagem" value="Personalizada pela IA" />
               <Row label="Enviada em" value="13/09/2026 às 10:00" />
               <Row label="Finalizada em" value="13/09/2026 às 20:15" />
