@@ -87,18 +87,20 @@ export function DashboardPage() {
               : `Aqui está o resumo ${businessLabel} em ${formatLongDate(selectedDate)}.`}
           </p>
         </div>
-        <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-          <button
-            type="button"
-            disabled={refreshing}
-            onClick={() => void handleRefresh()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
-          >
-            <RefreshCw size={14} className={refreshing ? 'animate-spin' : undefined} />
-            {refreshing ? 'Atualizando…' : 'Atualizar'}
-          </button>
+        <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end lg:justify-end">
           <AccountMenu />
-          <DatePicker value={selectedDate} onChange={setSelectedDate} />
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              disabled={refreshing}
+              onClick={() => void handleRefresh()}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
+            >
+              <RefreshCw size={14} className={refreshing ? 'animate-spin' : undefined} />
+              {refreshing ? 'Atualizando…' : 'Atualizar'}
+            </button>
+            <DatePicker value={selectedDate} onChange={setSelectedDate} />
+          </div>
         </div>
       </header>
 
