@@ -50,6 +50,18 @@ export function DashboardPage() {
     selectedDate.getMonth() === today.getMonth() &&
     selectedDate.getDate() === today.getDate()
 
+  async function handleRefresh() {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await refreshWhatsAppInbound()
+    } catch {
+      /* ignore */
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   const kpis = [
     { label: 'Clientes cadastrados', value: String(clients.length), delta: '+12%', icon: Users, iconBg: 'bg-sky-50 text-sky-500', highlight: false },
     { label: 'Mensagens enviadas', value: String(messages.length), delta: '+23%', icon: Send, iconBg: 'bg-emerald-50 text-emerald-500', highlight: false },
@@ -76,6 +88,15 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+          <button
+            type="button"
+            disabled={refreshing}
+            onClick={() => void handleRefresh()}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : undefined} />
+            {refreshing ? 'Atualizando…' : 'Atualizar'}
+          </button>
           <AccountMenu />
           <DatePicker value={selectedDate} onChange={setSelectedDate} />
         </div>
@@ -196,12 +217,7 @@ export function DashboardPage() {
               <button
                 type="button"
                 disabled={refreshing}
-                onClick={() => {
-                  setRefreshing(true)
-                  void refreshWhatsAppInbound()
-                    .catch(() => {})
-                    .finally(() => setRefreshing(false))
-                }}
+                onClick={() => void handleRefresh()}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-brand hover:text-brand disabled:opacity-60"
               >
                 <RefreshCw size={14} className={refreshing ? 'animate-spin' : undefined} />
