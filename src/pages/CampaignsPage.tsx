@@ -28,6 +28,7 @@ import {
   getAiSuggestions,
   getMessageTemplates,
   getSegmentEmoji,
+  getSegmentProductLabel,
   type MessageMode,
 } from '../data/messageTemplates'
 import { suggestCampaignMessage, type AiSuggestProvider } from '../services/aiSuggest'
@@ -93,8 +94,13 @@ export function CampaignsPage() {
   }, [audience, selectedIds, statusCounts])
 
   const previewClient = getClient(selectedIds[0] ?? 'c1') ?? clients[0]
+  // Na prévia usamos rótulo do segmento (não o seed de pizza do cadastro).
   const previewText = previewClient
-    ? personalizeMessage(message, previewClient, settings.segment)
+    ? personalizeMessage(
+        message,
+        { ...previewClient, produtoFavorito: getSegmentProductLabel(settings.segment) },
+        settings.segment,
+      )
     : message
 
   const recipients = useMemo(() => {

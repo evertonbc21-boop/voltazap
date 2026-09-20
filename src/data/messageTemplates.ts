@@ -61,15 +61,29 @@ export function getProductWord(segment: Segment) {
   return PRODUCT_WORD[segment]
 }
 
-/** Exemplos quando o cadastro ainda tem produto de outro segmento (ex.: seed de pizza). */
-const SAMPLE_FAVORITE: Partial<Record<Segment, string>> = {
-  Barbearia: 'corte degradê',
-  'Salão de beleza': 'hidratação',
-  Clínica: 'consulta de retorno',
-  'Pet Shop': 'banho e tosa',
-  Restaurante: 'prato da casa',
-  Hamburgueria: 'X-bacon',
-  Outro: 'serviço favorito',
+/**
+ * Rótulo genérico do “favorito” conforme o segmento do negócio.
+ * Usado na prévia e quando o cadastro ainda tem produto de outro segmento (ex.: seed de pizza).
+ */
+export function getSegmentProductLabel(segment: Segment): string {
+  switch (segment) {
+    case 'Pizzaria':
+      return 'pizza favorita'
+    case 'Restaurante':
+      return 'prato favorito'
+    case 'Hamburgueria':
+      return 'hambúrguer favorito'
+    case 'Barbearia':
+      return 'corte'
+    case 'Salão de beleza':
+      return 'serviço de beleza'
+    case 'Clínica':
+      return 'consulta'
+    case 'Pet Shop':
+      return 'serviço pet'
+    default:
+      return 'serviço favorito'
+  }
 }
 
 const FOOD_SEED_RE =
@@ -78,18 +92,13 @@ const FOOD_SEED_RE =
 /** Produto/serviço favorito coerente com o segmento do negócio. */
 export function favoriteForSegment(produtoFavorito: string, segment: Segment): string {
   const trimmed = (produtoFavorito || '').trim()
-  if (!trimmed || trimmed === '—') {
-    return SAMPLE_FAVORITE[segment] || PRODUCT_WORD[segment]
-  }
+  const segmentLabel = getSegmentProductLabel(segment)
 
-  const isServiceSegment =
-    segment === 'Barbearia' ||
-    segment === 'Salão de beleza' ||
-    segment === 'Clínica' ||
-    segment === 'Pet Shop'
+  if (!trimmed || trimmed === '—') return segmentLabel
 
-  if (isServiceSegment && FOOD_SEED_RE.test(trimmed)) {
-    return SAMPLE_FAVORITE[segment] || trimmed
+  // Seeds de pizzaria não devem aparecer em outros segmentos
+  if (segment !== 'Pizzaria' && FOOD_SEED_RE.test(trimmed)) {
+    return segmentLabel
   }
 
   return trimmed
@@ -150,6 +159,34 @@ Que tal marcar de novo o seu {produto_favorito}? ${emoji}
 Faz {dias_sem_pedir} dias — normalmente você volta a cada {frequencia_media} dias.
 
 Responde aqui e a gente confirma o horário!`,
+    ]
+  }
+
+  if (segment === 'Outro') {
+    return [
+      `Olá, {nome}! 👋
+
+Já faz {dias_sem_pedir} dias desde o seu último {produto_favorito}. ${emoji}
+
+Você costuma voltar a cada {frequencia_media} dias.
+
+Quer que eu te ajude a agendar de novo?
+
+Estamos te esperando! ❤️`,
+      `Oi, {nome}! ${emoji}
+
+Sentimos sua falta! Já faz {dias_sem_pedir} dias sem o seu {produto_favorito}.
+
+Seu intervalo médio é de {frequencia_media} dias — está na hora de voltar.
+
+Posso te atender hoje?`,
+      `{nome}, tudo bem? 👋
+
+Que tal retomar o seu {produto_favorito}? ${emoji}
+
+Faz {dias_sem_pedir} dias — normalmente você volta a cada {frequencia_media} dias.
+
+Estamos te esperando!`,
     ]
   }
 
