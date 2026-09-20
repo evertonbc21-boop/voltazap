@@ -36,6 +36,8 @@ export function DashboardPage() {
   const { settings } = useSettings()
   const [refreshing, setRefreshing] = useState(false)
   const used = Math.min(plan.clientsLimit, clients.length)
+  const readyToMessage =
+    statusCounts.proxima_compra + statusCounts.atrasado + statusCounts.muito_tempo
   const greetingName = getGreetingName(settings.companyName, account?.nome)
   const businessLabel = getBusinessLabel(settings.segment)
   const [selectedDate, setSelectedDate] = useState(() => new Date())
@@ -158,7 +160,11 @@ export function DashboardPage() {
             <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white">🎯</div>
             <h3 className="text-2xl font-bold text-slate-900">Recupere mais pedidos hoje!</h3>
             <p className="mt-2 text-slate-600">
-              Temos <strong>45 clientes</strong> prontos para receber sua mensagem.
+              Temos{' '}
+              <strong>
+                {readyToMessage} {readyToMessage === 1 ? 'cliente' : 'clientes'}
+              </strong>{' '}
+              prontos para receber sua mensagem.
             </p>
             <Link
               to="/campanhas"
