@@ -116,8 +116,8 @@ export function DashboardPage() {
           {daysLeft > 0
             ? `Teste grátis: ${daysLeft} ${daysLeft === 1 ? 'dia restante' : 'dias restantes'}.`
             : 'Seu teste grátis terminou. Escolha um plano para continuar.'}{' '}
-          <Link to="/planos" className="font-semibold underline">
-            Ver planos
+          <Link to={daysLeft != null && daysLeft <= 0 ? '/assinar' : '/planos'} className="font-semibold underline">
+            {daysLeft != null && daysLeft <= 0 ? 'Assinar agora' : 'Ver planos'}
           </Link>
         </p>
       ) : null}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Check, Sparkles } from 'lucide-react'
 import { PLANS, formatPlanPrice } from '../data/plans'
 import { SignupPlanModal } from '../components/SignupPlanModal'
@@ -7,13 +7,15 @@ import { usePlan } from '../context/PlanContext'
 import type { PlanId } from '../data/plans'
 
 export function PlansPage() {
-  const { planId, selectPlan } = usePlan()
+  const { planId, selectPlan, isTrialExpired, subscriptionStatus } = usePlan()
   const location = useLocation()
+  const navigate = useNavigate()
   const [signupPlan, setSignupPlan] = useState<PlanId | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   /** Em /cadastro abre o formulário; em /planos só troca o plano. */
   const isPublicSignup = location.pathname === '/cadastro'
+  const needsCheckout = isTrialExpired || subscriptionStatus === 'expired'
 
   function handleChoosePlan(nextId: PlanId) {
     const name = PLANS.find((p) => p.id === nextId)?.name ?? 'plano'
@@ -21,6 +23,11 @@ export function PlansPage() {
 
     if (isPublicSignup) {
       setSignupPlan(nextId)
+      return
+    }
+
+    if (needsCheckout) {
+      navigate(`/assinar`)
       return
     }
 
@@ -33,8 +40,18 @@ export function PlansPage() {
       <header className="text-center lg:text-left">
         <h2 className="text-2xl font-bold text-slate-900 md:text-3xl">Planos</h2>
         <p className="mt-1 text-slate-500">
-          Escolha o plano certo para reativar seus clientes. Teste grátis por 7 dias.
+          {needsCheckout
+            ? 'Seu teste acabou. Escolha o plano e conclua a assinatura para continuar.'
+            : 'Escolha o plano certo para reativar seus clientes. Teste grátis por 7 dias.'}
         </p>
+        {needsCheckout ? (
+          <Link
+            to="/assinar"
+            className="mt-3 inline-flex rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark"
+          >
+            Ir para o checkout
+          </Link>
+        ) : null}
       </header>
 
       {toast ? (
@@ -112,9 +129,11 @@ export function PlansPage() {
               >
                 {isPublicSignup
                   ? 'Começar agora'
-                  : current
-                    ? 'Plano atual'
-                    : 'Escolher este plano'}
+                  : needsCheckout
+                    ? 'Assinar este plano'
+                    : current
+                      ? 'Plano atual'
+                      : 'Escolher este plano'}
               </button>
               <p className="mt-3 flex items-center justify-center gap-1 text-center text-xs text-slate-400">
                 <Sparkles size={12} />

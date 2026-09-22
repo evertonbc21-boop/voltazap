@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, Link } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { RequireAuth } from './components/RequireAuth'
+import { RequireSubscription } from './components/RequireSubscription'
 import { AuthProvider } from './context/AuthContext'
 import { ClientsProvider } from './context/ClientsContext'
 import { PlanProvider } from './context/PlanContext'
@@ -13,6 +14,8 @@ import { MessagesPage } from './pages/MessagesPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { PlansPage } from './pages/PlansPage'
+import { SubscribePage } from './pages/SubscribePage'
+import { SubscribeSuccessPage } from './pages/SubscribeSuccessPage'
 import { MessagesProvider } from './context/MessagesContext'
 import { CampaignProvider } from './context/CampaignContext'
 import { LoginPage } from './pages/LoginPage'
@@ -55,16 +58,20 @@ export default function App() {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/cadastro" element={<PublicSignupLayout />} />
                     <Route element={<RequireAuth />}>
-                      <Route element={<AppLayout />}>
-                        <Route path="/" element={<DashboardPage />} />
-                        <Route path="/clientes" element={<ClientsPage />} />
-                        <Route path="/campanhas" element={<CampaignsPage />} />
-                        <Route path="/resultados" element={<ResultsPage />} />
-                        <Route path="/mensagens" element={<MessagesPage />} />
-                        <Route path="/relatorios" element={<ReportsPage />} />
-                        <Route path="/planos" element={<PlansPage />} />
-                        <Route path="/configuracoes" element={<SettingsPage />} />
-                        <Route path="*" element={<Navigate to="/" replace />} />
+                      <Route path="/assinar" element={<SubscribePage />} />
+                      <Route path="/assinar/sucesso" element={<SubscribeSuccessPage />} />
+                      <Route element={<RequireSubscription />}>
+                        <Route element={<AppLayout />}>
+                          <Route path="/" element={<DashboardPage />} />
+                          <Route path="/clientes" element={<ClientsPage />} />
+                          <Route path="/campanhas" element={<CampaignsPage />} />
+                          <Route path="/resultados" element={<ResultsPage />} />
+                          <Route path="/mensagens" element={<MessagesPage />} />
+                          <Route path="/relatorios" element={<ReportsPage />} />
+                          <Route path="/planos" element={<PlansPage />} />
+                          <Route path="/configuracoes" element={<SettingsPage />} />
+                          <Route path="*" element={<Navigate to="/" replace />} />
+                        </Route>
                       </Route>
                     </Route>
                   </Routes>
