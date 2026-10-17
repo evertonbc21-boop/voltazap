@@ -62,16 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) return { error: 'Supabase não configurado.' }
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    })
-    if (error) return { error: mapAuthError(error.message) }
-    if (data.user) {
-      // Mesma conta: mantém dados. Outra conta: zera o workspace local.
-      prepareWorkspaceForUser(data.user.id)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (error) return { error: mapAuthError(error.message) }
+      if (data.user) {
+        // Mesma conta: mantém dados. Outra conta: zera o workspace local.
+        prepareWorkspaceForUser(data.user.id)
+      }
+      return { error: null }
+    } catch (err) {
+      return { error: mapAuthError(err instanceof Error ? err.message : String(err)) }
     }
-    return { error: null }
   }, [])
 
   const signUp = useCallback(
@@ -81,21 +85,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       meta?: { nome?: string; negocio?: string; whatsapp?: string },
     ) => {
       if (!supabase) return { error: 'Supabase não configurado.', needsEmailConfirmation: false }
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: {
-            nome: meta?.nome?.trim() || '',
-            negocio: meta?.negocio?.trim() || '',
-            whatsapp: meta?.whatsapp || '',
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: {
+              nome: meta?.nome?.trim() || '',
+              negocio: meta?.negocio?.trim() || '',
+              whatsapp: meta?.whatsapp || '',
+            },
           },
-        },
-      })
-      if (error) return { error: mapAuthError(error.message), needsEmailConfirmation: false }
-      if (data.user) prepareWorkspaceForUser(data.user.id, { forceEmpty: true })
-      const needsEmailConfirmation = Boolean(data.user) && !data.session
-      return { error: null, needsEmailConfirmation }
+        })
+        if (error) return { error: mapAuthError(error.message), needsEmailConfirmation: false }
+        if (data.user) prepareWorkspaceForUser(data.user.id, { forceEmpty: true })
+        const needsEmailConfirmation = Boolean(data.user) && !data.session
+        return { error: null, needsEmailConfirmation }
+      } catch (err) {
+        return {
+          error: mapAuthError(err instanceof Error ? err.message : String(err)),
+          needsEmailConfirmation: false,
+        }
+      }
     },
     [],
   )
@@ -103,16 +114,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!supabase) return { error: 'Supabase não configurado.' }
     const redirectTo = `${window.location.origin}/redefinir-senha`
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
-    if (error) return { error: mapAuthError(error.message) }
-    return { error: null }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
+      if (error) return { error: mapAuthError(error.message) }
+      return { error: null }
+    } catch (err) {
+      return { error: mapAuthError(err instanceof Error ? err.message : String(err)) }
+    }
   }, [])
 
   const updatePassword = useCallback(async (password: string) => {
     if (!supabase) return { error: 'Supabase não configurado.' }
-    const { error } = await supabase.auth.updateUser({ password })
-    if (error) return { error: mapAuthError(error.message) }
-    return { error: null }
+    try {
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) return { error: mapAuthError(error.message) }
+      return { error: null }
+    } catch (err) {
+      return { error: mapAuthError(err instanceof Error ? err.message : String(err)) }
+    }
   }, [])
 
   const signOut = useCallback(async () => {
@@ -146,6 +165,15 @@ export function useAuth() {
 
 function mapAuthError(message: string) {
   const lower = message.toLowerCase()
+  if (
+    lower.includes('failed to fetch') ||
+    lower.includes('load failed') ||
+    lower.includes('networkerror') ||
+    lower.includes('network error') ||
+    lower.includes('fetch')
+  ) {
+    return 'Não foi possível conectar ao servidor. Verifique sua conexão e se o Supabase está configurado corretamente (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).'
+  }
   if (lower.includes('invalid login credentials')) return 'E-mail ou senha incorretos.'
   if (lower.includes('user already registered')) return 'Este e-mail já está cadastrado. Faça login.'
   if (lower.includes('password')) return 'Senha inválida. Use pelo menos 6 caracteres.'
