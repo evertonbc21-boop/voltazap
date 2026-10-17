@@ -10,7 +10,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "create-test-user": "node scripts/create-test-user.mjs",
+    "reset-password": "node scripts/reset-password.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
