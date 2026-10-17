@@ -19,6 +19,8 @@ import { SubscribeSuccessPage } from './pages/SubscribeSuccessPage'
 import { MessagesProvider } from './context/MessagesContext'
 import { CampaignProvider } from './context/CampaignContext'
 import { LoginPage } from './pages/LoginPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
 function PublicSignupLayout() {
   return (
@@ -56,6 +58,8 @@ export default function App() {
                 <BrowserRouter>
                   <Routes>
                     <Route path="/login" element={<LoginPage />} />
+                    <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+                    <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
                     <Route path="/cadastro" element={<PublicSignupLayout />} />
                     <Route element={<RequireAuth />}>
                       <Route path="/assinar" element={<SubscribePage />} />
