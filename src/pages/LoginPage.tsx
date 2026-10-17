@@ -69,6 +69,12 @@ export function LoginPage() {
             />
           </label>
 
+          <div className="mt-2 text-right">
+            <Link to="/esqueci-senha" className="text-sm font-medium text-brand hover:underline">
+              Esqueci minha senha
+            </Link>
+          </div>
+
           {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
           {!configured ? (
             <p className="mt-3 text-sm text-amber-600">

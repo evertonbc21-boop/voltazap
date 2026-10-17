@@ -22,6 +22,8 @@ interface AuthContextValue {
     password: string,
     meta?: { nome?: string; negocio?: string; whatsapp?: string },
   ) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>
+  updatePassword: (password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -98,6 +100,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    if (!supabase) return { error: 'Supabase não configurado.' }
+    const redirectTo = `${window.location.origin}/redefinir-senha`
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
+    if (error) return { error: mapAuthError(error.message) }
+    return { error: null }
+  }, [])
+
+  const updatePassword = useCallback(async (password: string) => {
+    if (!supabase) return { error: 'Supabase não configurado.' }
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) return { error: mapAuthError(error.message) }
+    return { error: null }
+  }, [])
+
   const signOut = useCallback(async () => {
     // Não apaga CRM: ao voltar com a mesma conta os dados permanecem
     if (supabase) await supabase.auth.signOut()
@@ -111,9 +128,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configured: isSupabaseConfigured,
       signIn,
       signUp,
+      requestPasswordReset,
+      updatePassword,
       signOut,
     }),
-    [session, loading, signIn, signUp, signOut],
+    [session, loading, signIn, signUp, requestPasswordReset, updatePassword, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
